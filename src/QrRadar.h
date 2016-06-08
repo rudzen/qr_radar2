@@ -15,52 +15,52 @@
 #include <zbar.h>
 #include "boost/unordered_map.hpp"
 #include <vector>
+#include <string>
 
-#include "PointData.h"
 #include "Calculator.h"
 
-static const std::string OPENCV_WINDOW = "Image window";
+static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
 
-static const int DBG = 1;
-
+#define DBG 1
+#define FALSE 0
 
 class QrRadar {
 
     ros::NodeHandle nh_;
     image_transport::ImageTransport it_;
-    image_transport::Subscriber image_sub_;
+    image_transport::Subscriber sub_image_;
+    ros::Subscriber sub_throttle_;
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "TemplateArgumentsIssues"
     boost::unordered_map<std::string, ros::Time> qr_memory_;
+#pragma clang diagnostic pop
     zbar::ImageScanner scanner_;
     ros::Publisher pub_qr_;
-    ros::Publisher pub_dist_;
-    int count_;
     double throttle_; // to slow down the aggresiveness of publishing!!
 
     std_msgs::String qr_string_;
     std::ostringstream stream_qr_;
     std::vector<CvPoint2D32f> pd_;
 
-
 public:
     QrRadar() : it_(nh_) {
         pd_.reserve(MAX_VECTOR_SIZE);
         throttle_ = 2.0; // test value!!!
-        count_ = 0;
         scanner_.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
         // Subscribe to input video feed and publish output video feed
-        image_sub_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+        sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+        sub_throttle_ = nh_.subscribe("/qr/throttle", 1, &QrRadar::set_throttle, this);
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
-        pub_dist_ = nh_.advertise<std_msgs::String>("qr_dist", 1);
         cv::namedWindow(OPENCV_WINDOW);
     }
 
     ~QrRadar() {
         cv::destroyWindow(OPENCV_WINDOW);
-        image_sub_.shutdown();
+        sub_image_.shutdown();
+        sub_throttle_.shutdown();
         pub_qr_.shutdown();
-        pub_dist_.shutdown();
         scanner_.~ImageScanner();
         stream_qr_.str(std::string());
         stream_qr_.clear();
@@ -69,6 +69,14 @@ public:
     // Function: Image callback from ROS.
     // Description: It is automaticly set up through the class construction.
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
+
+        std::cout << "Timing everything with cv_bridge copy & DBG =" << DBG << std::endl;
+
+        /* get the ros time to append to each publish so they can be syncronized from subscription side */
+        uint32_t ros_time = ros::Time::now().sec;
+        if (DBG) {
+            std::cout << "ros time : " << ros_time << std::endl;
+        }
 
         // share test
         /*
@@ -98,21 +106,8 @@ public:
         /* scan the image for QR codes */
         const int scans = scanner_.scan(zbar_image);
 
-        if (scans == 0) {
-            if (DBG) {
-                //std::cout << "nothing found..." << std::endl;
-            }
+        if (scans == FALSE) {
             return;
-        }
-
-        if (DBG) {
-            std::cout << "found qr code..." << std::endl;
-        }
-
-        /* get the ros time to append to each publish so they can be syncronized from subscription side */
-        uint32_t ros_time = ros::Time::now().sec;
-        if (DBG) {
-            std::cout << "ros time : " << ros_time << std::endl;
         }
 
         /* iterate over located symbols to fetch the data */
@@ -137,8 +132,7 @@ public:
                 qr_memory_.insert(std::make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
-
-            for (int i = 0; i < 4; i++) {
+            for (unsigned int i = 0; i < MAX_VECTOR_SIZE; i++) {
                 CvPoint2D32f data;
                 data.x = symbol->get_location_x(i);
                 data.y = symbol->get_location_y(i);
@@ -214,10 +208,27 @@ public:
 
         if (DBG) {
             cv::imshow(OPENCV_WINDOW, cv_ptr->image);
-            cv::waitKey(3);
+            cv::waitKey(1);
         }
+
+        uint32_t const time_end = ros::Time::now().sec;
+        std::cout << "Time for scanning QR code and calculating (seconds) = " << (time_end - ros_time) << std::endl;
     }
 
+    void set_throttle(const std_msgs::String::ConstPtr msg) {
+        std::cout << "Got throttle information....";
+        try {
+            double temp = std::stod (msg->data.c_str());
+            if (temp > 0.0) {
+                std::cout << " changed " << throttle_ << " -> " << temp << std::endl;
+                throttle_ = temp;
+            }
+        }  catch (const std::invalid_argument& ia) {
+            std::cout << " but it was invalid : " << ia.what() << std::endl;
+        }  catch (const std::out_of_range& uor) {
+            std::cout << " but it was out of range : " << uor.what() << std::endl;
+        }
+    }
 
 };
 

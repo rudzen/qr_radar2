@@ -5,13 +5,12 @@
 #ifndef QR_RADAR2_CALCULATOR_H
 #define QR_RADAR2_CALCULATOR_H
 
-#include "PointData.h"
-
-
 static const float D = 21.45; // cm
 static const int Z = 100; // cm
 static const float d = 0.0; // pixels
 static const float f = 0.0; // focal width
+
+#define offset(a, b, c) (a - b) / c;
 
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
@@ -49,7 +48,7 @@ public:
     // Function: Horizontal offset calculation in cm
     // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
     static double offset_horizontal(float * __restrict__ qr_x, float * __restrict__ img_x, double * __restrict__ cm_pix) {
-        return (*qr_x - *img_x) * *cm_pix;
+        return offset(*qr_x, *img_x, *cm_pix);
     }
 
     // Function: Vertical offset calculation in cm
