@@ -41,6 +41,14 @@ public:
         return *cm / qr_size;
     }
 
+    static double offset_horizontal(float * __restrict__ qr_x, float * __restrict__ img_x, double * __restrict__ cm_pix) {
+        return (*qr_x - *img_x) * *cm_pix;
+    }
+
+    static double offset_vertical(float * __restrict__ qr_y, float * __restrict__ img_y, double * __restrict__ cm_pix) {
+        return (*qr_y - *img_y) * *cm_pix;
+    }
+
     /*
      *
      *

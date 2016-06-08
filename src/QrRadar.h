@@ -154,39 +154,54 @@ public:
                 std::cout << pd_[3].x << '~' << pd_[3].y << std::endl;
             }
 
-            const float half = (pd_[1].x - pd_[0].x) / 2;
-            CvPoint2D32f qr_center, im_center;
-            CvPoint2D32f line1, line2;
 
-            qr_center.x = pd_[1].x - half;
-            qr_center.y = pd_[2].x - half;
+            // New test code for calculating distance...
 
-            im_center.x = cv_ptr->image.rows >> 1;
-            im_center.y = cv_ptr->image.cols >> 1;
+            /* calculate center of qr code */
+            CvPoint2D32f qr_cent;
+            qr_cent.x = 0;
+            qr_cent.y = 0;
+            int counter = 0;
+            for (CvPoint2D32f &point : pd_) {
+                qr_cent.x += point.x;
+                qr_cent.y += point.y;
+                ++counter;
+            }
+            qr_cent.x /= counter;
+            qr_cent.y /= counter;
 
-            line1.x = pd_[0].x;
-            line1.y = im_center.y;
+            /* calculate center of image (generic for any size) */
+            CvPoint2D32f img_cent;
 
-            line2.x = im_center.x;
-            line2.y = pd_[0].y;
+            img_cent.x = cv_ptr->image.cols << 1;
+            img_cent.y = cv_ptr->image.rows << 1;
+            img_cent.x /= counter;
+            img_cent.y /= counter;
 
-            double dist_center = Calculator::distance(qr_center, im_center);
-            double dist_x = Calculator::distance(line1, line2);
+            double distance = Calculator::distance(qr_cent, img_cent);
+            double cm_real = Calculator::pixToCm(&distance);
+
+
+            double offset_horizonal = Calculator::offset_horizontal(&qr_cent.x, &img_cent.x, &cm_real);
+            double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
+
+
+            std::cout << "distance (pix) : " << distance << std::endl;
+            std::cout << "cm_real  (cm)  : " << cm_real << std::endl;
+            std::cout << "off.hori (cm)  : " << offset_horizonal << std::endl;
+            std::cout << "off.vert (cm)  : " << offset_vertical << std::endl;
 
             stream_calc.str(std::string());
             stream_calc.clear();
             stream_calc << std::setfill('0') << std::setw(10) << ros_time;
             stream_calc << '~';
-            stream_calc << std::setfill('0') << std::setw(10) << dist_center;
+            stream_calc << std::setfill('0') << std::setw(10) << cm_real;
             stream_calc << '~';
-            stream_calc << std::setfill('0') << std::setw(10) << dist_x;
-
-
-
-
+            stream_calc << std::setfill('0') << std::setw(10) << offset_horizonal;
+            stream_calc << '~';
+            stream_calc << std::setfill('0') << std::setw(10) << offset_vertical;
 
             // **************** Qr stuff here *****************************
-
             stream_qr.str(std::string());
             stream_qr.clear();
             stream_qr << std::setfill('0') << std::setw(10) << ros_time;
