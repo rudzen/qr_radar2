@@ -200,6 +200,8 @@ public:
             stream_qr_ << std::setfill('0') << std::setw(10) << offset_horizonal;
             stream_qr_ << '~';
             stream_qr_ << std::setfill('0') << std::setw(10) << offset_vertical;
+            stream_qr_ << '~';
+            stream_qr_ << std::setfill('0') << std::setw(10) << z_cm;
 
             /* publish the qr code information */
             qr_string_.data = stream_qr_.str();
