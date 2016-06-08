@@ -16,6 +16,7 @@
 #include "boost/unordered_map.hpp"
 #include <vector>
 #include <string>
+#include <cmath>
 
 #include "Calculator.h"
 
@@ -207,12 +208,44 @@ public:
         }
 
         if (DBG) {
+            // draw lines on image through the center in both x and y
+            cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255 , 0, 0), 3, 8, 0);
+            cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.rows >> 1, cv_ptr->image.cols), CV_RGB(255 , 0, 0), 3, 8, 0);
+
+            // draw a box around the DETECTED Qr-Code (!!)
+            cv::rectangle(cv_ptr->image, cvRect((int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 255, 0), 1, 8, 0);
+
+            // write the pixels (width) for the Qr-Code in the lower right side of the image!
+            std::ostringstream tmpss;
+            tmpss << (pd_[2].x - pd_[0].x);
+            cv::addText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols - cv_ptr->image.cols >> 2, cv_ptr->image.rows - cv_ptr->image.rows >> 2), cvFont(1.0, 4));
+
+            // show the image
             cv::imshow(OPENCV_WINDOW, cv_ptr->image);
+
+            // save the image!!!
+            std::vector<int> compression_params;
+            compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+            compression_params.push_back(70);
+
+            tmpss.str(std::string());
+            tmpss.clear();
+            tmpss << "/opt/ros/qr_image" << ros_time << ".jpg";
+
+            try {
+                cv::imwrite(tmpss.str(), cv_ptr->image, compression_params);
+            }
+            catch (const std::runtime_error& ex) {
+                std::cout << "Exception saving image : " << ex.what() << std::endl;
+            }
+            std::cout << "Saved image file as " << tmpss.str() << std::endl;
+
             cv::waitKey(1);
         }
 
         uint32_t const time_end = ros::Time::now().sec;
         std::cout << "Time for scanning QR code and calculating (seconds) = " << (time_end - ros_time) << std::endl;
+
     }
 
     void set_throttle(const std_msgs::String::ConstPtr msg) {

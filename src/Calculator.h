@@ -82,7 +82,6 @@ public:
         return D * f / *pix_width;
     }
 
-
     /*
      *
      *
