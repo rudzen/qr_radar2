@@ -234,11 +234,11 @@ public:
 
             try {
                 cv::imwrite(tmpss.str(), cv_ptr->image, compression_params);
+                std::cout << "Saved image file as " << tmpss.str() << std::endl;
             }
             catch (const std::runtime_error& ex) {
                 std::cout << "Exception saving image : " << ex.what() << std::endl;
             }
-            std::cout << "Saved image file as " << tmpss.str() << std::endl;
 
             cv::waitKey(1);
         }
