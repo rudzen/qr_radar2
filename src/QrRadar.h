@@ -195,6 +195,7 @@ public:
             stream_qr_ << std::setfill('0') << std::setw(10) << ros_time;
             stream_qr_ << '~';
             stream_qr_ << qr;
+            stream_qr_ << '~';
             stream_qr_ << std::setfill('0') << std::setw(10) << cm_real;
             stream_qr_ << '~';
             stream_qr_ << std::setfill('0') << std::setw(10) << offset_horizonal;
