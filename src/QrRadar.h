@@ -37,9 +37,8 @@ class QrRadar {
     int count_;
     double throttle_; // to slow down the aggresiveness of publishing!!
 
-    std_msgs::String qr_string;
-    std::ostringstream stream_qr;
-    std::ostringstream stream_calc;
+    std_msgs::String qr_string_;
+    std::ostringstream stream_qr_;
     std::vector<CvPoint2D32f> pd_;
 
 
@@ -63,6 +62,8 @@ public:
         pub_qr_.shutdown();
         pub_dist_.shutdown();
         scanner_.~ImageScanner();
+        stream_qr_.str(std::string());
+        stream_qr_.clear();
     }
 
     // Function: Image callback from ROS.
@@ -108,13 +109,11 @@ public:
             std::cout << "found qr code..." << std::endl;
         }
 
-
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
         uint32_t ros_time = ros::Time::now().sec;
         if (DBG) {
             std::cout << "ros time : " << ros_time << std::endl;
         }
-
 
         /* iterate over located symbols to fetch the data */
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
@@ -138,7 +137,7 @@ public:
                 qr_memory_.insert(std::make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
-            // ***************** calculation begins points *********************
+
             for (int i = 0; i < 4; i++) {
                 CvPoint2D32f data;
                 data.x = symbol->get_location_x(i);
@@ -154,10 +153,6 @@ public:
                 std::cout << pd_[3].x << '~' << pd_[3].y << std::endl;
             }
 
-
-            // New test code for calculating distance...
-
-            /* calculate center of qr code */
             CvPoint2D32f qr_cent;
             qr_cent.x = 0;
             qr_cent.y = 0;
@@ -165,6 +160,7 @@ public:
             for (CvPoint2D32f &point : pd_) {
                 qr_cent.x += point.x;
                 qr_cent.y += point.y;
+                /* point order is left/top, left/bottom, right/bottom, right/top */
                 ++counter;
             }
             qr_cent.x /= counter;
@@ -181,62 +177,31 @@ public:
             double distance = Calculator::distance(qr_cent, img_cent);
             double cm_real = Calculator::pixToCm(&distance);
 
-
             double offset_horizonal = Calculator::offset_horizontal(&qr_cent.x, &img_cent.x, &cm_real);
             double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
-
 
             std::cout << "distance (pix) : " << distance << std::endl;
             std::cout << "cm_real  (cm)  : " << cm_real << std::endl;
             std::cout << "off.hori (cm)  : " << offset_horizonal << std::endl;
             std::cout << "off.vert (cm)  : " << offset_vertical << std::endl;
 
-            stream_calc.str(std::string());
-            stream_calc.clear();
-            stream_calc << std::setfill('0') << std::setw(10) << ros_time;
-            stream_calc << '~';
-            stream_calc << std::setfill('0') << std::setw(10) << cm_real;
-            stream_calc << '~';
-            stream_calc << std::setfill('0') << std::setw(10) << offset_horizonal;
-            stream_calc << '~';
-            stream_calc << std::setfill('0') << std::setw(10) << offset_vertical;
-
-            // **************** Qr stuff here *****************************
-            stream_qr.str(std::string());
-            stream_qr.clear();
-            stream_qr << std::setfill('0') << std::setw(10) << ros_time;
-            stream_qr << '~';
-            stream_qr << qr;
-
-            /* point order is left/top, left/bottom, right/bottom, right/top */
-            for (CvPoint2D32f &point : pd_) {
-                stream_qr << '~';
-                stream_qr << std::setfill('0') << std::setw(5) << point.x;
-                stream_qr << '~';
-                stream_qr << std::setfill('0') << std::setw(5) << point.y;
-            }
-
-            /*
-            for (int i = 0; i < 4; i++) {
-                stream_qr << std::setfill('0') << std::setw(5) << symbol->get_location_x(i);
-                stream_qr << ".";
-                stream_qr << std::setfill('0') << std::setw(5) << symbol->get_location_y(i);
-            }
-             */
+            stream_qr_.str(std::string());
+            stream_qr_.clear();
+            stream_qr_ << std::setfill('0') << std::setw(10) << ros_time;
+            stream_qr_ << '~';
+            stream_qr_ << qr;
+            stream_qr_ << std::setfill('0') << std::setw(10) << cm_real;
+            stream_qr_ << '~';
+            stream_qr_ << std::setfill('0') << std::setw(10) << offset_horizonal;
+            stream_qr_ << '~';
+            stream_qr_ << std::setfill('0') << std::setw(10) << offset_vertical;
 
             /* publish the qr code information */
-            qr_string.data = stream_qr.str();
+            qr_string_.data = stream_qr_.str();
             if (DBG) {
-                std::cout << "qr_radar sending QR : " << stream_qr.str() << std::endl;
+                std::cout << "qr_radar sending QR : " << stream_qr_.str() << std::endl;
             }
-            pub_qr_.publish(qr_string);
-
-            if (DBG) {
-                std::cout << "qr_radar sending CALC : " << stream_calc.str() << std::endl;
-            }
-            qr_string.data = stream_calc.str();
-            pub_dist_.publish(qr_string);
-
+            pub_qr_.publish(qr_string_);
         }
 
         if (DBG) {
