@@ -9,19 +9,20 @@ Published the following information from detected QR-codes to the topic `qr` top
 * QR-Code text
 * QR-Code horizontal offset (cm)
 * QR-Code vertical offset (cm)
+* Distance to QR-Code in CM
 
 # FORMAT #
 
 The data being published is send in the following format.
 
-ROSTIME~QRTEXT~H.OFFSET~V.OFFSET
+ROSTIME~QRTEXT~H.OFFSET~V.OFFSET~CM
 
 Note that the offsets are ZERO PADDED if needed.
 The format is padded to allow for a maximum of 99999 value for each, meaning that any values which essentially is fewer characters long will be padded.
 
-For example if a QR-code containing the text P01 and has the offsets at 5 cm (h) and 4 cm (v) :
+For example if a QR-code containing the text P01 and has the offsets at 5 cm (h) and 4 cm (v) from a distance of 1,02 m:
 
-567567322.P01.00005.00004
+567567322.P01.00005.00004.00102
 
 (Might be altered depending on the needs of the map node. One options could be to calculate the distance from the center alignment of the current image in both X and Y axis and attach that information as well.)
 
