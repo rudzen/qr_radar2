@@ -180,6 +180,10 @@ public:
             double offset_horizonal = Calculator::offset_horizontal(&qr_cent.x, &img_cent.x, &cm_real);
             double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
 
+            // calculate the Z distance...
+
+
+
             std::cout << "distance (pix) : " << distance << std::endl;
             std::cout << "cm_real  (cm)  : " << cm_real << std::endl;
             std::cout << "off.hori (cm)  : " << offset_horizonal << std::endl;
