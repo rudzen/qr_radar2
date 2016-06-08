@@ -36,18 +36,24 @@ public:
         return (a * J.x + (1.0 * J.y) + (((M.y - L.y) / (M.x - L.x)) * L.x) - L.y) / sqrt((a * a) + (1.0 * 1.0));
     }
 
-    static double pixToCm(double * __restrict__ distance) {
+    // Function : Converts pixels to cm
+    static double pix_to_cm(double *__restrict__ distance) {
         return D / *distance;
     }
 
+    // Function: Converts cm to pixels
     static double cm_to_pix(double * __restrict__ cm) {
         return *cm / D;
     }
 
+    // Function: Horizontal offset calculation in cm
+    // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
     static double offset_horizontal(float * __restrict__ qr_x, float * __restrict__ img_x, double * __restrict__ cm_pix) {
         return (*qr_x - *img_x) * *cm_pix;
     }
 
+    // Function: Vertical offset calculation in cm
+    // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
     static double offset_vertical(float * __restrict__ qr_y, float * __restrict__ img_y, double * __restrict__ cm_pix) {
         return (*qr_y - *img_y) * *cm_pix;
     }
@@ -101,8 +107,5 @@ public:
      *
      */
 };
-
-
-
 
 #endif //QR_RADAR2_CALCULATOR_H

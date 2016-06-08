@@ -175,19 +175,20 @@ public:
             img_cent.y /= counter;
 
             double distance = Calculator::distance(qr_cent, img_cent);
-            double cm_real = Calculator::pixToCm(&distance);
+            double cm_real = Calculator::pix_to_cm(&distance);
 
             double offset_horizonal = Calculator::offset_horizontal(&qr_cent.x, &img_cent.x, &cm_real);
             double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
 
             // calculate the Z distance...
+            float qr_width = pd_[2].x - pd_[0].x;
+            double z_cm = Calculator::distance_z(&qr_width);
 
-
-
-            std::cout << "distance (pix) : " << distance << std::endl;
-            std::cout << "cm_real  (cm)  : " << cm_real << std::endl;
-            std::cout << "off.hori (cm)  : " << offset_horizonal << std::endl;
-            std::cout << "off.vert (cm)  : " << offset_vertical << std::endl;
+            std::cout << "distance  (pix) : " << distance << std::endl;
+            std::cout << "distance  (cm)  : " << z_cm << std::endl;
+            std::cout << "cm offset (cm)  : " << cm_real << std::endl;
+            std::cout << "off.hori  (cm)  : " << offset_horizonal << std::endl;
+            std::cout << "off.vert  (cm)  : " << offset_vertical << std::endl;
 
             stream_qr_.str(std::string());
             stream_qr_.clear();
