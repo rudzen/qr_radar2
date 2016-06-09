@@ -18,6 +18,7 @@
 #include <string>
 #include <cmath>
 
+#include "ControlHeaders.h"
 #include "Calculator.h"
 
 static const std::string OPENCV_WINDOW = "QR-Code window";
@@ -25,6 +26,9 @@ static const int MAX_VECTOR_SIZE = 4;
 
 #define DBG 1
 #define FALSE 0
+#define TRUE 1
+
+using namespace std;
 
 class QrRadar {
 
@@ -32,6 +36,7 @@ class QrRadar {
     image_transport::ImageTransport it_;
     image_transport::Subscriber sub_image_;
     ros::Subscriber sub_throttle_;
+    ros::Subscriber sub_control_;
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
     boost::unordered_map<std::string, ros::Time> qr_memory_;
@@ -40,19 +45,25 @@ class QrRadar {
     ros::Publisher pub_qr_;
     double throttle_; // to slow down the aggresiveness of publishing!!
 
-    std_msgs::String qr_string_;
-    std::ostringstream stream_qr_;
-    std::vector<CvPoint2D32f> pd_;
+    std_msgs::String msg_qr_;
+    std_msgs::String msg_control_;
+
+    ostringstream stream_qr_;
+    vector<CvPoint2D32f> pd_;
+
+    int control;
 
 public:
     QrRadar() : it_(nh_) {
+        control = QR_CONTROL_ALL;
         pd_.reserve(MAX_VECTOR_SIZE);
         throttle_ = 2.0; // test value!!!
         scanner_.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
         // Subscribe to input video feed and publish output video feed
         sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
-        sub_throttle_ = nh_.subscribe("/qr/throttle", 1, &QrRadar::set_throttle, this);
+        sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
+        sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
         cv::namedWindow(OPENCV_WINDOW);
     }
@@ -61,6 +72,7 @@ public:
         cv::destroyWindow(OPENCV_WINDOW);
         sub_image_.shutdown();
         sub_throttle_.shutdown();
+        sub_control_.shutdown();
         pub_qr_.shutdown();
         scanner_.~ImageScanner();
         stream_qr_.str(std::string());
@@ -71,12 +83,12 @@ public:
     // Description: It is automaticly set up through the class construction.
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
-        std::cout << "Timing everything with cv_bridge copy & DBG =" << DBG << std::endl;
+        cout << "Timing everything with cv_bridge copy & DBG =" << DBG << std::endl;
 
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
         uint32_t ros_time = ros::Time::now().sec;
         if (DBG) {
-            std::cout << "ros time : " << ros_time << std::endl;
+            cout << "ros time : " << ros_time << endl;
         }
 
         // share test
@@ -115,14 +127,14 @@ public:
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
 
             /* grab the text from the symbol */
-            std::string qr = symbol->get_data();
+            string qr = symbol->get_data();
 
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
                 if (qr_memory_.count(qr) > 0) {
                     // verify throttle timer to erase it from memory
                     if (ros::Time::now() > qr_memory_.at(qr)) {
-                        std::cout << "Throttle timeout reached, removing data from memory." << std::endl;;
+                        cout << "Throttle timeout reached, removing data from memory." << endl;;
                         qr_memory_.erase(qr);
                     } else {
                         // timeout was not reached, just move along the found symbols
@@ -130,7 +142,7 @@ public:
                     }
                 }
                 // save the qr code in memory and define new timer for it's erasure
-                qr_memory_.insert(std::make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
+                qr_memory_.insert(make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
             for (unsigned int i = 0; i < MAX_VECTOR_SIZE; i++) {
@@ -141,11 +153,11 @@ public:
             }
 
             if (DBG) {
-                std::cout << "Data collected :" << std::endl;
-                std::cout << pd_[0].x << '~' << pd_[0].y << std::endl;
-                std::cout << pd_[1].x << '~' << pd_[1].y << std::endl;
-                std::cout << pd_[2].x << '~' << pd_[2].y << std::endl;
-                std::cout << pd_[3].x << '~' << pd_[3].y << std::endl;
+                cout << "Data collected :" << std::endl;
+                cout << pd_[0].x << '~' << pd_[0].y << endl;
+                cout << pd_[1].x << '~' << pd_[1].y << endl;
+                cout << pd_[2].x << '~' << pd_[2].y << endl;
+                cout << pd_[3].x << '~' << pd_[3].y << endl;
             }
 
             CvPoint2D32f qr_cent;
@@ -179,32 +191,32 @@ public:
             float qr_width = pd_[2].x - pd_[0].x;
             double z_cm = Calculator::distance_z(&qr_width);
 
-            std::cout << "distance  (pix) : " << distance << std::endl;
-            std::cout << "distance  (cm)  : " << z_cm << std::endl;
-            std::cout << "cm offset (cm)  : " << cm_real << std::endl;
-            std::cout << "off.hori  (cm)  : " << offset_horizonal << std::endl;
-            std::cout << "off.vert  (cm)  : " << offset_vertical << std::endl;
+            cout << "distance  (pix) : " << distance << endl;
+            cout << "distance  (cm)  : " << z_cm << endl;
+            cout << "cm offset (cm)  : " << cm_real << endl;
+            cout << "off.hori  (cm)  : " << offset_horizonal << endl;
+            cout << "off.vert  (cm)  : " << offset_vertical << endl;
 
-            stream_qr_.str(std::string());
+            stream_qr_.str(string());
             stream_qr_.clear();
-            stream_qr_ << std::setfill('0') << std::setw(10) << ros_time;
+            stream_qr_ << setfill('0') << setw(10) << ros_time;
             stream_qr_ << '~';
             stream_qr_ << qr;
             stream_qr_ << '~';
-            stream_qr_ << std::setfill('0') << std::setw(10) << cm_real;
+            stream_qr_ << setfill('0') << setw(10) << cm_real;
             stream_qr_ << '~';
-            stream_qr_ << std::setfill('0') << std::setw(10) << offset_horizonal;
+            stream_qr_ << setfill('0') << setw(10) << offset_horizonal;
             stream_qr_ << '~';
-            stream_qr_ << std::setfill('0') << std::setw(10) << offset_vertical;
+            stream_qr_ << setfill('0') << setw(10) << offset_vertical;
             stream_qr_ << '~';
-            stream_qr_ << std::setfill('0') << std::setw(10) << z_cm;
+            stream_qr_ << setfill('0') << setw(10) << z_cm;
 
             /* publish the qr code information */
-            qr_string_.data = stream_qr_.str();
+            msg_qr_.data = stream_qr_.str();
             if (DBG) {
-                std::cout << "qr_radar sending QR : " << stream_qr_.str() << std::endl;
+                cout << "qr_radar sending QR : " << stream_qr_.str() << endl;
             }
-            pub_qr_.publish(qr_string_);
+            pub_qr_.publish(msg_qr_);
         }
 
         if (DBG) {
@@ -216,7 +228,7 @@ public:
             cv::rectangle(cv_ptr->image, cvRect((int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 255, 0), 1, 8, 0);
 
             // write the pixels (width) for the Qr-Code in the lower right side of the image!
-            std::ostringstream tmpss;
+            ostringstream tmpss;
             tmpss << (pd_[2].x - pd_[0].x);
             cv::addText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols - cv_ptr->image.cols >> 2, cv_ptr->image.rows - cv_ptr->image.rows >> 2), cvFont(1.0, 4));
 
@@ -224,44 +236,70 @@ public:
             cv::imshow(OPENCV_WINDOW, cv_ptr->image);
 
             // save the image!!!
-            std::vector<int> compression_params;
+            vector<int> compression_params;
             compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
             compression_params.push_back(70);
 
-            tmpss.str(std::string());
+            tmpss.str(string());
             tmpss.clear();
             tmpss << "/opt/ros/qr_image" << ros_time << ".jpg";
 
             try {
                 cv::imwrite(tmpss.str(), cv_ptr->image, compression_params);
-                std::cout << "Saved image file as " << tmpss.str() << std::endl;
+                cout << "Saved image file as " << tmpss.str() << endl;
             }
             catch (const std::runtime_error& ex) {
-                std::cout << "Exception saving image : " << ex.what() << std::endl;
+                cout << "Exception saving image : " << ex.what() << endl;
             }
 
             cv::waitKey(1);
         }
 
         uint32_t const time_end = ros::Time::now().sec;
-        std::cout << "Time for scanning QR code and calculating (seconds) = " << (time_end - ros_time) << std::endl;
+        cout << "Time for scanning QR code and calculating (seconds) = " << (time_end - ros_time) << endl;
 
     }
 
     void set_throttle(const std_msgs::String::ConstPtr msg) {
-        std::cout << "Got throttle information....";
+        cout << "Got throttle information....";
         try {
-            double temp = std::stod (msg->data.c_str());
+            double temp = stod (msg->data.c_str());
             if (temp > 0.0) {
-                std::cout << " changed " << throttle_ << " -> " << temp << std::endl;
+                cout << " changed " << throttle_ << " -> " << temp << endl;
                 throttle_ = temp;
             }
-        }  catch (const std::invalid_argument& ia) {
-            std::cout << " but it was invalid : " << ia.what() << std::endl;
+        }  catch (const invalid_argument& ia) {
+            cout << " but it was invalid : " << ia.what() << endl;
         }  catch (const std::out_of_range& uor) {
-            std::cout << " but it was out of range : " << uor.what() << std::endl;
+            cout << " but it was out of range : " << uor.what() << endl;
         }
     }
+
+    void set_control(const std_msgs::String::ConstPtr msg) {
+        cout << "Got control parameter : " << msg->data.c_str() << endl;
+        const int control_msg = stoi(msg->data.c_str());
+        switch (control_msg) {
+            case QR_CONTROL_NONE:
+            case QR_CONTROL_ALL:
+            case QR_CONTROL_LARGEST:
+            case QR_CONTROL_SMALLEST:
+            case QR_CONTROL_QUAD_1:
+            case QR_CONTROL_QUAD_2:
+            case QR_CONTROL_QUAD_3:
+            case QR_CONTROL_QUAD_4:
+            case QR_CONTROL_RIGHT:
+            case QR_CONTROL_LEFT:
+            case QR_CONTROL_UPPER:
+            case QR_CONTROL_LOWER:
+                control = control_msg;
+                msg_control_.data = QR_CONTROL_MSG_OK;
+            default:
+                msg_control_.data = QR_CONTROL_MSG_FAIL;
+                break;
+        }
+        pub_qr_.publish(msg_control_);
+    }
+
 
 };
 

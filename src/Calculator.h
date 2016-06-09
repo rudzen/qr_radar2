@@ -5,6 +5,8 @@
 #ifndef QR_RADAR2_CALCULATOR_H
 #define QR_RADAR2_CALCULATOR_H
 
+
+
 static const float D = 21.45; // cm
 static const int Z = 100; // cm
 static const float d = 0.0; // pixels
@@ -12,12 +14,14 @@ static const float f = 0.0; // focal width
 
 #define offset(a, b, c) (a - b) / c;
 
+
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
 
 private:
 
 public:
+
 
     // Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
