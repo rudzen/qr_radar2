@@ -108,6 +108,11 @@ public:
     // Description: It is automaticly set up through the class construction.
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
+        // make sure the control unit acts quickly!
+        if (control == QR_CONTROL_NONE) {
+            return;
+        }
+
         //cout << "Timing everything with cv_bridge share & DBG =" << DBG << std::endl;
 
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
@@ -151,6 +156,8 @@ public:
             return;
         }
 
+        int symbol_counter = 0; // for control unit
+
         /* iterate over located symbols to fetch the data */
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
 
@@ -158,6 +165,8 @@ public:
                 // this is not good, it means the QR-Code is not read correctly or some memory corruption has occoured!!!!
                 continue;
             }
+
+            ++symbol_counter;
 
             /* grab the text from the symbol */
             string qr = symbol->get_data();
@@ -203,6 +212,12 @@ public:
 
             /* calculate center of image (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
+
+            if (controlbreak(qr_c, img_c) == TRUE) {
+                cout << "Qr-control blocked processing.. code : " << control << endl;
+                continue;
+            }
+
 
             int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
             double cm_real = Calculator::pix_to_cm(&distance_c2c);
@@ -256,7 +271,6 @@ public:
             uint32_t const time_end = ros::Time::now().sec;
             cout << "Time for scanning QR code and calculating (ms) = " << ((time_end - ros_time) / 1000000) << endl;
 
-
             if (DBG) {
 
                 // draw lines on image through the center in both x and y
@@ -294,6 +308,51 @@ public:
 
         }
     }
+
+    int controlbreak(const v2& qr, const v2& img) {
+        // *********** CONTROL CHECK #1 ***************
+        // (for positional check of scanned code)
+        switch (control) {
+            case QR_CONTROL_UPPER:
+                if (qr.y < img.y) {
+                    return 0;
+                }
+            case QR_CONTROL_LOWER:
+                if (qr.y > img.y) {
+                    return 0;
+                }
+            case QR_CONTROL_LEFT:
+                if (qr.x < img.x) {
+                    return 0;
+                }
+            case QR_CONTROL_RIGHT:
+                if (qr.x > img.x) {
+                    return 0;
+                }
+            case QR_CONTROL_QUAD_1:
+                if (qr.y < img.y && qr.x > img.x) {
+                    return 0;
+                }
+            case QR_CONTROL_QUAD_2:
+                if (qr.y < img.y && qr.x < img.x) {
+                    return 0;
+                }
+            case QR_CONTROL_QUAD_3:
+                if (qr.y > img.y && qr.x < img.x) {
+                    return 1;
+                }
+            case QR_CONTROL_QUAD_4:
+                if (qr.y > img.y && qr.x > img.x) {
+                    return 0;
+                }
+            case QR_CONTROL_NONE:
+                return 1;
+            default:break;
+        }
+        return 1;
+    }
+
+
 
     void set_throttle(const std_msgs::String::ConstPtr msg) {
         cout << "Got throttle information....";
