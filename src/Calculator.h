@@ -88,8 +88,12 @@ public:
     // d' = aparent width in pixels at any given distance
     // since f / d' = Z'/ D <-> Z' = D * f / d'
     // Z' is then the actual distance of the CURRENT object detected.
-    static double distance_z(float * __restrict__ pix_width) {
+    static double distance_z_wall(double *__restrict__ pix_width) {
         return D_big * focal_front / *pix_width;
+    }
+
+    static double distance_z_floor(double *__restrict__ pix_height) {
+        return D_floor * focal_buttom / *pix_height;
     }
 
     /*

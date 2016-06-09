@@ -192,14 +192,17 @@ public:
             double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
 
             // calculate the Z distance...
-            float qr_width = pd_[2].x - pd_[0].x;
-            double z_cm = Calculator::distance_z(&qr_width);
+            double qr_width = pd_[2].x - pd_[0].x;
+            double qr_height = pd_[1].y - pd_[0].y;
+            double z_cm_width = Calculator::distance_z_wall(&qr_width);
+            double z_cm_height = Calculator::distance_z_wall(&qr_height);
 
-            cout << "distance  (pix) : " << distance << endl;
-            cout << "distance  (cm)  : " << z_cm << endl;
-            cout << "cm offset (cm)  : " << cm_real << endl;
-            cout << "off.hori  (cm)  : " << offset_horizonal << endl;
-            cout << "off.vert  (cm)  : " << offset_vertical << endl;
+            cout << "c2c          (pix) : " << distance << endl;
+            cout << "distance (w) (cm)  : " << z_cm_width << endl;
+            cout << "distance (h) (cm)  : " << z_cm_height << endl;
+            cout << "cm offset    (cm)  : " << cm_real << endl;
+            cout << "off.hori     (cm)  : " << offset_horizonal << endl;
+            cout << "off.vert     (cm)  : " << offset_vertical << endl;
 
             stream_qr_.str(string());
             stream_qr_.clear();
@@ -213,7 +216,7 @@ public:
             stream_qr_ << '~';
             stream_qr_ << setfill('0') << setw(10) << offset_vertical;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << z_cm;
+            stream_qr_ << setfill('0') << setw(10) << z_cm_width;
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
