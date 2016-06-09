@@ -62,6 +62,11 @@ public:
         return sqrt(abs((int) ((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
     }
 
+    static int pixel_distance(const v2<int> &P, const v2<int> &Q) {
+        //sqrt(pow(abs(P.x - Q.x), 2) + pow(abs(P.y - Q.y), 2));
+        return sqrt(abs(((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
+    }
+
     static double avg(double *__restrict__ first, double *__restrict__ second) {
         return (*first + *second) / 2;
     }
@@ -91,24 +96,24 @@ public:
     }
 
     // Function : Converts pixels to cm
-    static double pix_to_cm(double *__restrict__ distance) {
+    static double pix_to_cm(int *__restrict__ distance) {
         return D_big / *distance;
     }
 
     // Function: Converts cm to pixels
-    static double cm_to_pix(double * __restrict__ cm) {
-        return *cm / D_big;
+    static int cm_to_pix(double * __restrict__ cm) {
+        return (int) round(*cm / D_big);
     }
 
     // Function: Horizontal offset calculation in cm
     // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_horizontal(float * __restrict__ qr_x, float * __restrict__ img_x, double * __restrict__ cm_pix) {
+    static double offset_horizontal(int * __restrict__ qr_x, int * __restrict__ img_x, double * __restrict__ cm_pix) {
         return offset(*qr_x, *img_x, *cm_pix);
     }
 
     // Function: Vertical offset calculation in cm
     // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_vertical(float * __restrict__ qr_y, float * __restrict__ img_y, double * __restrict__ cm_pix) {
+    static double offset_vertical(int * __restrict__ qr_y, int * __restrict__ img_y, double * __restrict__ cm_pix) {
         return (*qr_y - *img_y) * *cm_pix;
     }
 

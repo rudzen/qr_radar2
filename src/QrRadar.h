@@ -74,7 +74,7 @@ class QrRadar {
     std_msgs::String msg_control_;
 
     ostringstream stream_qr_;
-    vector<CvPoint2D32f> pd_;
+    vector<v2<int>> pd_;
 
     int control;
 
@@ -161,7 +161,7 @@ public:
 
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
-                if (qr_memory_.count(qr) > 0) {
+                if (!qr_memory_.empty() && qr_memory_.count(qr) > 0) {
                     // verify throttle timer to erase it from memory
                     if (ros::Time::now() > qr_memory_.at(qr)) {
                         cout << "Throttle timeout reached, removing data from memory." << endl;;
@@ -175,50 +175,38 @@ public:
                 qr_memory_.insert(make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
+            // ****** QR META CALCULATION *********
             pd_.clear();
             for (unsigned int i = 0; i < MAX_VECTOR_SIZE; i++) {
                 CvPoint2D32f data;
                 data.x = symbol->get_location_x(i);
                 data.y = symbol->get_location_y(i);
-                pd_.push_back(data);
+                pd_.push_back(v2<int>(symbol->get_location_x(i), symbol->get_location_y(i)));
             }
 
-            if (DBG) {
-                cout << "Data collected :" << std::endl;
-                cout << pd_[0].x << '~' << pd_[0].y << endl;
-                cout << pd_[1].x << '~' << pd_[1].y << endl;
-                cout << pd_[2].x << '~' << pd_[2].y << endl;
-                cout << pd_[3].x << '~' << pd_[3].y << endl;
-            }
+            v2<int> qr_c;
 
-            CvPoint2D32f qr_cent;
-            qr_cent.x = 0;
-            qr_cent.y = 0;
+            /* precise (based on qr locations from zbar) calculation of center */
             int counter = 0;
-            for (CvPoint2D32f &point : pd_) {
-                qr_cent.x += point.x;
-                qr_cent.y += point.y;
+            for (v2<int> &point : pd_) {
+                qr_c.x += point.x;
+                qr_c.y += point.y;
                 /* point order is left/top, left/bottom, right/bottom, right/top */
                 ++counter;
             }
-            qr_cent.x /= counter;
-            qr_cent.y /= counter;
+            qr_c.x /= counter;
+            qr_c.y /= counter;
 
             /* calculate center of image (generic for any size) */
-            CvPoint2D32f img_cent;
+            v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
-            img_cent.x = cv_ptr->image.cols << 1;
-            img_cent.y = cv_ptr->image.rows << 1;
-            img_cent.x /= counter;
-            img_cent.y /= counter;
+            int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
+            double cm_real = Calculator::pix_to_cm(&distance_c2c);
 
-            double distance = Calculator::distance(qr_cent, img_cent);
-            double cm_real = Calculator::pix_to_cm(&distance);
+            double offset_horizonal = Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real);
+            double offset_vertical = Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real);
 
-            double offset_horizonal = Calculator::offset_horizontal(&qr_cent.x, &img_cent.x, &cm_real);
-            double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
-
-            // calculate the Z distance...
+            // calculate the Z distance_c2c...
             double qr_width_top = pd_[3].x - pd_[0].x;
             double qr_width_buttom =  pd_[2].x - pd_[1].x;
             double qr_width = Calculator::avg(&qr_width_top, &qr_width_buttom);
@@ -231,9 +219,9 @@ public:
 
 
 
-            cout << "c2c          (pix) : " << distance << endl;
-            cout << "distance (w) (cm)  : " << z_cm_width << endl;
-            cout << "distance (h) (cm)  : " << z_cm_height << endl;
+            cout << "c2c          (pix) : " << distance_c2c << endl;
+            cout << "distance_c2c (w) (cm)  : " << z_cm_width << endl;
+            cout << "distance_c2c (h) (cm)  : " << z_cm_height << endl;
             cout << "smallest dist (cm) : " << smallest(abs(z_cm_width), abs(z_cm_height)) << endl;
             cout << "cm offset    (cm)  : " << cm_real << endl;
             cout << "off.hori     (cm)  : " << offset_horizonal << endl;
