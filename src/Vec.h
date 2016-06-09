@@ -139,11 +139,11 @@ public:
 
     // Operator : Scalarproduct (dotproduct)
     T operator*(const v3& that) {
-        return (this->x * that.x) + (this->y * that.y) + (this->z * that.z);
+        return (this->x * that.x) + (this->y * that.y) + (z * that.z);
     }
 
     T operator*(T * __restrict__ k) {
-        return v3(*k * this->x, *k * this->y, *k * this->z);
+        return v3(*k * this->x, *k * this->y, *k * z);
     }
 
     T len()const {
@@ -163,6 +163,13 @@ public:
     }
 
 };
+
+template<class T>
+ostream &operator << (ostream &stream, v3<T> v) {
+    cout << '[' << v.x << ',' << v.y << ',' << v.z << ']';
+    return stream;
+}
+
 
 
 #endif //QR_RADAR2_VEC_H
