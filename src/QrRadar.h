@@ -214,7 +214,7 @@ public:
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
             if (controlbreak(qr_c, img_c) == TRUE) {
-                cout << "Qr-control blocked processing.. code : " << control << endl;
+                cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
                 continue;
             }
 
@@ -237,6 +237,7 @@ public:
             //double z_cm_width = Calculator::distance_z_wall(&qr_width);
             //double z_cm_height = Calculator::distance_z_wall(&qr_height);
 
+            cout << "Symbol " << symbol_counter << '/' << scans << endl;
             cout << "c2c          (pix) : " << distance_c2c << endl;
             cout << "distance_c2c (w) (cm)  : " << z_cm_.x << endl;
             cout << "distance_c2c (h) (cm)  : " << z_cm_.y << endl;
@@ -309,7 +310,7 @@ public:
         }
     }
 
-    int controlbreak(const v2& qr, const v2& img) {
+    int controlbreak(v2<int> qr, v2<int> img) {
         // *********** CONTROL CHECK #1 ***************
         // (for positional check of scanned code)
         switch (control) {
