@@ -28,6 +28,8 @@ static const int MAX_VECTOR_SIZE = 4;
 #define FALSE 0
 #define TRUE 1
 
+#define smallest(a, b) (a < b ? a : b)
+
 using namespace std;
 
 class QrRadar {
@@ -129,6 +131,8 @@ public:
         /* iterate over located symbols to fetch the data */
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
 
+
+
             /* grab the text from the symbol */
             string qr = symbol->get_data();
 
@@ -192,17 +196,26 @@ public:
             double offset_vertical = Calculator::offset_vertical(&qr_cent.y, &img_cent.y, &cm_real);
 
             // calculate the Z distance...
-            double qr_width = pd_[2].x - pd_[0].x;
-            double qr_height = pd_[1].y - pd_[0].y;
+            double qr_width_top = pd_[3].x - pd_[0].x;
+            double qr_width_buttom =  pd_[2].x - pd_[1].x;
+            double qr_width = Calculator::avg(&qr_width_top, &qr_width_buttom);
+            double qr_height_left = pd_[1].y - pd_[0].y;
+            double qr_height_right = pd_[2].y - pd_[3].y;
+            double qr_height = Calculator::avg(&qr_height_left, &qr_height_right);
             double z_cm_width = Calculator::distance_z_wall(&qr_width);
             double z_cm_height = Calculator::distance_z_wall(&qr_height);
+
+
+
 
             cout << "c2c          (pix) : " << distance << endl;
             cout << "distance (w) (cm)  : " << z_cm_width << endl;
             cout << "distance (h) (cm)  : " << z_cm_height << endl;
+            cout << "smallest dist (cm) : " << smallest(abs(z_cm_width), abs(z_cm_height)) << endl;
             cout << "cm offset    (cm)  : " << cm_real << endl;
             cout << "off.hori     (cm)  : " << offset_horizonal << endl;
             cout << "off.vert     (cm)  : " << offset_vertical << endl;
+            cout << "angular dist (cm)  : " << Calculator::angle_a(qr_height_left,qr_height_right,z_cm_height) << " " << qr_height_left << " " << qr_height_right << endl;
 
             stream_qr_.str(string());
             stream_qr_.clear();
@@ -216,7 +229,7 @@ public:
             stream_qr_ << '~';
             stream_qr_ << setfill('0') << setw(10) << offset_vertical;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << z_cm_width;
+            stream_qr_ << setfill('0') << setw(10) << smallest(abs(z_cm_width), abs(z_cm_height));
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();

@@ -5,6 +5,9 @@
 #ifndef QR_RADAR2_CALCULATOR_H
 #define QR_RADAR2_CALCULATOR_H
 
+#define PI 3.14159265
+
+#include "math.h"
 
 
 //static const float D = 21.05; // cm
@@ -35,6 +38,25 @@ public:
         //sqrt(pow(abs(P.x - Q.x), 2) + pow(abs(P.y - Q.y), 2));
         return sqrt(abs((int) ((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
     }
+
+    static double avg(double *__restrict__ first, double *__restrict__ second) {
+        return (*first + *second) / 2;
+    }
+
+    static double angle_a(double h1, double h2, double c) {
+        double A = atan((h1 - h2) / (360 / avg(&h1,&h2) )) * 180 / PI;
+
+        double a = c * cos(A);
+        return a;
+    }
+
+    static double angle_b(double h1, double h2, double c) {
+
+        double A = atan((h1 - h2) / avg(&h1,&h2)) * 180 / PI;
+        double a = c / sin(A);
+        return a;
+    }
+
 
     // Function: Perpendicular Distance of a Point J from line formed by Points L and M; Equation of the line ax+by+c=0
     // Description: Given 3 points, the function derives the line quation of the first two points,
