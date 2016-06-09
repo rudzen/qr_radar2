@@ -154,7 +154,10 @@ public:
         /* iterate over located symbols to fetch the data */
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
 
-
+            if (symbol->get_location_size() != MAX_VECTOR_SIZE) {
+                // this is not good, it means the QR-Code is not read correctly or some memory corruption has occoured!!!!
+                continue;
+            }
 
             /* grab the text from the symbol */
             string qr = symbol->get_data();
@@ -181,10 +184,11 @@ public:
                 CvPoint2D32f data;
                 data.x = symbol->get_location_x(i);
                 data.y = symbol->get_location_y(i);
+                symbol->get_count();
                 pd_.push_back(v2<int>(symbol->get_location_x(i), symbol->get_location_y(i)));
             }
 
-            v2<int> qr_c;
+            v2<int> qr_c; // this is the main center point from where all calculations are taking place!
 
             /* precise (based on qr locations from zbar) calculation of center */
             int counter = 0;
@@ -203,8 +207,9 @@ public:
             int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
             double cm_real = Calculator::pix_to_cm(&distance_c2c);
 
-            double offset_horizonal = Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real);
-            double offset_vertical = Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real);
+            v2<double> offsets_cm(Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real), Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real));
+            //double offset_horizonal = Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real);
+            //double offset_vertical = Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real);
 
             // calculate the Z distance_c2c...
             double qr_width_top = pd_[3].x - pd_[0].x;
@@ -213,20 +218,18 @@ public:
             double qr_height_left = pd_[1].y - pd_[0].y;
             double qr_height_right = pd_[2].y - pd_[3].y;
             double qr_height = Calculator::avg(&qr_height_left, &qr_height_right);
-            double z_cm_width = Calculator::distance_z_wall(&qr_width);
-            double z_cm_height = Calculator::distance_z_wall(&qr_height);
-
-
-
+            v2<double> z_cm_(Calculator::distance_z_wall(&qr_width), Calculator::distance_z_wall(&qr_height));
+            //double z_cm_width = Calculator::distance_z_wall(&qr_width);
+            //double z_cm_height = Calculator::distance_z_wall(&qr_height);
 
             cout << "c2c          (pix) : " << distance_c2c << endl;
-            cout << "distance_c2c (w) (cm)  : " << z_cm_width << endl;
-            cout << "distance_c2c (h) (cm)  : " << z_cm_height << endl;
-            cout << "smallest dist (cm) : " << smallest(abs(z_cm_width), abs(z_cm_height)) << endl;
+            cout << "distance_c2c (w) (cm)  : " << z_cm_.x << endl;
+            cout << "distance_c2c (h) (cm)  : " << z_cm_.y << endl;
+            cout << "smallest dist (cm) : " << smallest(abs(z_cm_.x), abs(z_cm_.y)) << endl;
             cout << "cm offset    (cm)  : " << cm_real << endl;
-            cout << "off.hori     (cm)  : " << offset_horizonal << endl;
-            cout << "off.vert     (cm)  : " << offset_vertical << endl;
-            cout << "angular dist (cm)  : " << Calculator::angle_a(qr_height_left,qr_height_right,z_cm_height) << " " << qr_height_left << " " << qr_height_right << endl;
+            cout << "off.hori     (cm)  : " << offsets_cm.x << endl;
+            cout << "off.vert     (cm)  : " << offsets_cm.y << endl;
+            cout << "angular dist (cm)  : " << Calculator::angle_a(qr_height_left,qr_height_right,z_cm_.y) << " " << qr_height_left << " " << qr_height_right << endl;
 
             stream_qr_.str(string());
             stream_qr_.clear();
@@ -236,11 +239,11 @@ public:
             stream_qr_ << '~';
             stream_qr_ << setfill('0') << setw(10) << cm_real;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << offset_horizonal;
+            stream_qr_ << setfill('0') << setw(10) << offsets_cm.x;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << offset_vertical;
+            stream_qr_ << setfill('0') << setw(10) << offsets_cm.y;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << smallest(abs(z_cm_width), abs(z_cm_height));
+            stream_qr_ << setfill('0') << setw(10) << smallest(abs(z_cm_.x), abs(z_cm_.y));
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
