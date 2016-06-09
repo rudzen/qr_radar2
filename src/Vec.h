@@ -25,6 +25,7 @@
 // Created by rudz on 6/9/16.
 //
 #pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedStructInspection"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #ifndef QR_RADAR2_VEC_H
 #define QR_RADAR2_VEC_H
@@ -66,7 +67,7 @@ public:
         return (x * that.x) + (y * that.y);
     }
 
-    v2 operator*(T * __restrict__ k) {
+    virtual v2 operator*(T * __restrict__ k) {
         return v2(*k * x, *k * y);
     }
 
@@ -86,7 +87,7 @@ public:
         return (v2(x, y) * that) / (len() * that.len());
     }
 
-    T len()const {
+    virtual T len()const {
         return abs(sqrt((x * x) + (y * y)));
     }
 
@@ -113,6 +114,11 @@ ostream &operator << (ostream &stream, v2<T> v) {
 template <class T>
 class v3 : public v2<T> {
 public:
+
+    v3(T x1, T y1, T z1, T x2, T y2, T z2): v2<T>(x1, y1, x2, y2) {
+        z = z2 - z1;
+    }
+
     v3(T x_, T y_, T z_): v2<T>(x_, y_) {
         z = z_;
     }
@@ -124,21 +130,37 @@ public:
     T z;
 
     v3 operator+(const v3& that) {
-
+        return v3(x + that.x, y + that.y, z + that.z);
     }
 
     v3 operator-(const v3& that) {
-
+        return v3(x - that.x, y - that.y, z - that.z);
     }
 
-    v3 operator*(const v3& that) {
-
+    // Operator : Scalarproduct (dotproduct)
+    T operator*(const v3& that) {
+        return (x * that.x) + (y * that.y) + (z * that.z);
     }
 
-    T len() {
-
+    T operator*(T * __restrict__ k) {
+        return v3(*k * x, *k * y, *k * z);
     }
 
+    T len()const {
+        return abs(sqrt(x * x + y * y + z * z));
+    }
+
+    v3 cross(const v3& that) {
+        return v3(y * that.z - z * y, z * that.x - x * that.z, x * that.y - that.y - x);
+    }
+
+    T parallelogram_area(const v3& that) {
+        return abs(cross(that).len());
+    }
+
+    T angle(const v3& that) {
+        return v3(x, y, z) * that / (len() * that.len());
+    }
 
 };
 
