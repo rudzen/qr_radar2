@@ -7,10 +7,16 @@
 
 
 
-static const float D = 21.45; // cm
+//static const float D = 21.05; // cm
+static const float D_big = 21.45; // cm
+static const float D_floor = 17.15; // cm
 static const int Z = 100; // cm
-static const float d = 0.0; // pixels
-static const float f = 0.0; // focal width
+
+static const int d_big = 114; // pixels
+static const float d_floor = d_big * 0.9f; // pixels
+
+static const float focal_front = d_big * Z / D_big; // focal width for front camera
+static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
 #define offset(a, b, c) (a - b) / c;
 
@@ -41,12 +47,12 @@ public:
 
     // Function : Converts pixels to cm
     static double pix_to_cm(double *__restrict__ distance) {
-        return D / *distance;
+        return D_big / *distance;
     }
 
     // Function: Converts cm to pixels
     static double cm_to_pix(double * __restrict__ cm) {
-        return *cm / D;
+        return *cm / D_big;
     }
 
     // Function: Horizontal offset calculation in cm
@@ -83,7 +89,7 @@ public:
     // since f / d' = Z'/ D <-> Z' = D * f / d'
     // Z' is then the actual distance of the CURRENT object detected.
     static double distance_z(float * __restrict__ pix_width) {
-        return D * f / *pix_width;
+        return D_big * focal_front / *pix_width;
     }
 
     /*

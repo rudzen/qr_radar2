@@ -83,12 +83,13 @@ public:
     // Description: It is automaticly set up through the class construction.
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
-        cout << "Timing everything with cv_bridge copy & DBG =" << DBG << std::endl;
+        //cout << "Timing everything with cv_bridge share & DBG =" << DBG << std::endl;
 
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
-        uint32_t ros_time = ros::Time::now().sec;
+        uint32_t ros_time = ros::Time::now().nsec;
+
         if (DBG) {
-            cout << "ros time : " << ros_time << endl;
+            //cout << "ros time : " << ros_time << endl;
         }
 
         // share test
@@ -104,6 +105,8 @@ public:
          */
 
         // create a copy of the image recieved.
+        /*
+         */
         cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
@@ -145,6 +148,7 @@ public:
                 qr_memory_.insert(make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
+            pd_.clear();
             for (unsigned int i = 0; i < MAX_VECTOR_SIZE; i++) {
                 CvPoint2D32f data;
                 data.x = symbol->get_location_x(i);
@@ -213,51 +217,52 @@ public:
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
+            /*
             if (DBG) {
                 cout << "qr_radar sending QR : " << stream_qr_.str() << endl;
             }
+            */
             pub_qr_.publish(msg_qr_);
-        }
+            uint32_t const time_end = ros::Time::now().sec;
+            cout << "Time for scanning QR code and calculating (ms) = " << ((time_end - ros_time) / 1000000) << endl;
 
-        if (DBG) {
-            // draw lines on image through the center in both x and y
-            cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255 , 0, 0), 3, 8, 0);
-            cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.rows >> 1, cv_ptr->image.cols), CV_RGB(255 , 0, 0), 3, 8, 0);
 
-            // draw a box around the DETECTED Qr-Code (!!)
-            cv::rectangle(cv_ptr->image, cvRect((int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 255, 0), 1, 8, 0);
+            if (DBG) {
 
-            // write the pixels (width) for the Qr-Code in the lower right side of the image!
-            ostringstream tmpss;
-            tmpss << (pd_[2].x - pd_[0].x);
-            cv::addText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols - cv_ptr->image.cols >> 2, cv_ptr->image.rows - cv_ptr->image.rows >> 2), cvFont(1.0, 4));
+                // draw lines on image through the center in both x and y
+                cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255), 1, 8, 0);
+                cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255), 1, 8, 0);
 
-            // show the image
-            cv::imshow(OPENCV_WINDOW, cv_ptr->image);
+                // draw a box around the DETECTED Qr-Code (!!)
+                cv::rectangle(cv_ptr->image, cvRect((int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 0, 0), 1, 8, 0);
 
-            // save the image!!!
-            vector<int> compression_params;
-            compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
-            compression_params.push_back(70);
+                // write the pixels (width) for the Qr-Code in the lower right side of the image!
+                ostringstream tmpss;
+                //tmpss << (pd_[2].x - pd_[0].x);
+                //cv::Mat m = cv_ptr->image.clone();
 
-            tmpss.str(string());
-            tmpss.clear();
-            tmpss << "/opt/ros/qr_image" << ros_time << ".jpg";
+                // show the image
+                cv::imshow(OPENCV_WINDOW, cv_ptr->image);
 
-            try {
-                cv::imwrite(tmpss.str(), cv_ptr->image, compression_params);
-                cout << "Saved image file as " << tmpss.str() << endl;
+                // save the image!!!
+                tmpss.str(string());
+                tmpss.clear();
+                tmpss << "./images/qr_image_";
+                tmpss << ros_time;
+                tmpss << ".jpg";
+
+                try {
+                    cv::imwrite(tmpss.str(), cv_ptr->image);
+                    cout << "Saved image file as " << tmpss.str() << endl;
+                }
+                catch (const std::runtime_error& ex) {
+                    cout << "Exception saving image : " << ex.what() << endl;
+                }
+
+                cv::waitKey(3);
             }
-            catch (const std::runtime_error& ex) {
-                cout << "Exception saving image : " << ex.what() << endl;
-            }
 
-            cv::waitKey(1);
         }
-
-        uint32_t const time_end = ros::Time::now().sec;
-        cout << "Time for scanning QR code and calculating (seconds) = " << (time_end - ros_time) << endl;
-
     }
 
     void set_throttle(const std_msgs::String::ConstPtr msg) {
@@ -299,8 +304,6 @@ public:
         }
         pub_qr_.publish(msg_control_);
     }
-
-
 };
 
 #endif //QR_RADAR2_QRRADAR_H
