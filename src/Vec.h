@@ -98,7 +98,7 @@ public:
         return cross() * that;
     }
 
-    T parallel(const v2& that) {
+    int parallel(const v2& that) {
         return det(that) == 0 ? 1 : 0;
     }
 
@@ -106,7 +106,7 @@ public:
 
 template<class T>
 ostream &operator << (ostream &stream, v2<T> v) {
-    cout << '[' << v.x << ',' << ']';
+    cout << '[' << v.x << ',' << v.y << ']';
     return stream;
 }
 
