@@ -340,7 +340,7 @@ public:
                 }
             case QR_CONTROL_QUAD_3:
                 if (qr.y > img.y && qr.x < img.x) {
-                    return 1;
+                    return 0;
                 }
             case QR_CONTROL_QUAD_4:
                 if (qr.y > img.y && qr.x > img.x) {
