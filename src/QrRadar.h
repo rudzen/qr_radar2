@@ -29,6 +29,7 @@
 #define QR_RADAR2_QRRADAR_H
 
 #include "std_msgs/String.h"
+#include "std_msgs/Empty.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -45,9 +46,6 @@
 #include "Calculator.h"
 #include "Rectangle.h"
 
-static const std::string OPENCV_WINDOW = "QR-Code window";
-static const int MAX_VECTOR_SIZE = 4;
-
 #define DBG 1
 #define FALSE 0
 #define TRUE 1
@@ -57,6 +55,12 @@ static const int MAX_VECTOR_SIZE = 4;
 
 using namespace std;
 
+static const std::string OPENCV_WINDOW = "QR-Code window";
+static const int MAX_VECTOR_SIZE = 4;
+
+int display_output = 1;
+int scan_images = 1;
+
 class QrRadar {
 
     ros::NodeHandle nh_;
@@ -64,6 +68,11 @@ class QrRadar {
     image_transport::Subscriber sub_image_;
     ros::Subscriber sub_throttle_;
     ros::Subscriber sub_control_;
+    ros::Subscriber sub_display_enable_;
+    ros::Subscriber sub_display_disable_;
+    ros::Subscriber sub_scan_enable_;
+    ros::Subscriber sub_scan_disable_;
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
     boost::unordered_map<std::string, ros::Time> qr_memory_;
@@ -83,7 +92,7 @@ class QrRadar {
 public:
     QrRadar() : it_(nh_) {
         // default control option
-        control = QR_CONTROL_LEFT;
+        control = QR_CONTROL_ALL;
 
         // reserve vector space
         pd_.reserve(MAX_VECTOR_SIZE);
@@ -91,14 +100,18 @@ public:
         // test value!!!
         throttle_ = 2.0;
 
-        // configure zbar scanner to only allow QR codes
+        // configure zbar scanner to only allow QR codes (speeds up scan)
         scanner_.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
 
-        // subscribe to input video feed and control / throttle topics
+        // subscribe to input video feed and control / throttle topics etc
         sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
+        sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
+        sub_display_disable_ = nh_.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
+        sub_scan_disable_ = nh_.subscribe("qr/scan/disable", 1, &QrRadar::scan_disable, this);
+        sub_scan_enable_ = nh_.subscribe("qr/scan/enable", 1, &QrRadar::scan_enable, this);
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
@@ -110,13 +123,15 @@ public:
     }
 
     ~QrRadar() {
-
-
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
         sub_image_.shutdown();
         sub_throttle_.shutdown();
         sub_control_.shutdown();
+        sub_display_enable_.shutdown();
+        sub_display_disable_.shutdown();
+        sub_scan_enable_.shutdown();
+        sub_scan_disable_.shutdown();
         pub_qr_.shutdown();
         scanner_.~ImageScanner();
         stream_qr_.str(std::string());
@@ -128,7 +143,7 @@ public:
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
         // make sure the control unit acts quickly!
-        if (control == QR_CONTROL_NONE) {
+        if (control == QR_CONTROL_NONE || scan_images == FALSE) {
             return;
         }
 
@@ -163,6 +178,10 @@ public:
 
         // configure scanning area
         intrect img_dim = Calculator::get_img_dim(&control, &cv_ptr->image.cols, &cv_ptr->image.rows);
+
+        // simple whitebalance test
+        //Calculator::balance_white(cv_ptr->image);
+        // meh
 
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
@@ -205,7 +224,7 @@ public:
                 qr_memory_.insert(make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
             }
 
-            // ****** QR META CALCULATION *********
+            // ****** QR META STUFF *********
             pd_.clear();
             pd_.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
             pd_.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
@@ -218,9 +237,6 @@ public:
                 cout << "qr code dimensions are not within controller settings.." << endl;
                 return;
             }
-
-
-
 
             v2<int> qr_c; // this is the main center point from where all calculations are taking place!
 
@@ -238,7 +254,6 @@ public:
             /* calculate center of image (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
-
             /* check if the qr is in a valid position */
             //if (controlbreak(qr_c, img_c) == TRUE) {
             //    cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
@@ -250,8 +265,6 @@ public:
             double cm_real = Calculator::pix_to_cm(&distance_c2c);
 
             v2<double> offsets_cm(Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real), Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real));
-            //double offset_horizonal = Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real);
-            //double offset_vertical = Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real);
 
             // calculate the Z distance_c2c...
             double qr_width_top = pd_[3].x - pd_[0].x;
@@ -261,17 +274,16 @@ public:
             double qr_height_right = pd_[2].y - pd_[3].y;
             double qr_height = Calculator::avg(&qr_height_left, &qr_height_right);
             v2<double> z_cm_(Calculator::distance_z_wall(&qr_width), Calculator::distance_z_wall(&qr_height));
-            //double z_cm_width = Calculator::distance_z_wall(&qr_width);
-            //double z_cm_height = Calculator::distance_z_wall(&qr_height);
 
-            double z_cm_smallest = smallest(abs(z_cm_.x), abs(z_cm_.y));
+            // use the smallest distance
+            const double z_cm_smallest = smallest(abs(z_cm_.x), abs(z_cm_.y));
 
             // angular calculations
-            double angle_a = Calculator::angle_a(qr_height, qr_width);
-            double dist_qr_projected = Calculator::dist_qr_projected(qr_height, qr_width, z_cm_smallest, qr_height_left >= qr_height_right ? 1 : -1);
-            double dist_cam_wall = Calculator::dist_wall(qr_height, qr_width, z_cm_smallest);
+            const double angle_a = Calculator::angle_a(qr_height, qr_width);
+            const double dist_qr_projected = Calculator::dist_qr_projected(qr_height, qr_width, z_cm_smallest, qr_height_left >= qr_height_right ? 1 : -1);
+            const double dist_cam_wall = Calculator::dist_wall(qr_height, qr_width, z_cm_smallest);
 
-
+            // info output
             cout << "Image rect            : " << img_dim << endl;
             cout << "QR rect               : " << qr_rect << endl;
             cout << "Symbol # / total      : " << symbol_counter << '/' << scans << endl;
@@ -298,7 +310,7 @@ public:
             stream_qr_ << '~';
             stream_qr_ << offsets_cm.y;
             stream_qr_ << '~';
-            stream_qr_ << smallest(abs(z_cm_.x), abs(z_cm_.y));
+            stream_qr_ << z_cm_smallest;
             stream_qr_ << '~';
             stream_qr_ << angle_a;
             stream_qr_ << '~';
@@ -308,16 +320,11 @@ public:
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
-            /*
-            if (DBG) {
-                cout << "qr_radar sending QR : " << stream_qr_.str() << endl;
-            }
-            */
             pub_qr_.publish(msg_qr_);
             uint32_t const time_end = ros::Time::now().sec;
             cout << "Time for scanning QR code and calculating (ms) = " << ((time_end - ros_time) / 1000000) << endl;
 
-            if (DBG) {
+            if (display_output) {
 
                 // draw lines on image through the center in both x and y
                 cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255), 1, 8, 0);
@@ -330,12 +337,12 @@ public:
                 cv::circle(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), 3, CV_RGB(255, 255, 255));
                 cv::circle(cv_ptr->image, cvPoint(pd_[3].x, pd_[3].y), 3, CV_RGB(255, 255, 255));
 
-                        //(int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 0, 0), 1, 8, 0);
-
-                // write the pixels (width) for the Qr-Code in the lower right side of the image!
                 ostringstream tmpss;
-                //tmpss << (pd_[2].x - pd_[0].x);
-                //cv::Mat m = cv_ptr->image.clone();
+
+                tmpss << z_cm_smallest << ' ' << dist_qr_projected;
+
+                cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
+
 
                 // show the image
                 cv::imshow(OPENCV_WINDOW, cv_ptr->image);
@@ -445,6 +452,30 @@ public:
         }
         pub_qr_.publish(msg_control_);
     }
+
+    void display_enable(const std_msgs::Empty empty) {
+        cout << "display enabled.." << endl;
+        display_output = 1;
+    }
+
+    void display_disable(const std_msgs::Empty empty) {
+        cout << "display disabled.." << endl;
+        display_output = 0;
+    }
+
+    void scan_enable(const std_msgs::String::ConstPtr msg) {
+        cout << "scan enabled.." << endl;
+        scan_images = 1;
+        sub_image_ = it_.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
+    }
+
+    void scan_disable(const std_msgs::Empty empty) {
+        cout << "scan disabled.." << endl;
+        scan_images = 0;
+        sub_image_.shutdown();
+    }
+
+
 };
 
 #endif //QR_RADAR2_QRRADAR_H

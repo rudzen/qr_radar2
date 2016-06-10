@@ -38,8 +38,7 @@
 
 using namespace std;
 
-template<class T>
-class v2 {
+template<class T> class v2 {
 public:
 
     v2(T x1, T y1, T x2, T y2) {
@@ -61,19 +60,19 @@ public:
     T y;
 
     v2 operator+(const v2& that) {
-        return v2(x + that.x, y + that.y);
+        return v2<T>(x + that.x, y + that.y);
     }
 
     v2 operator+=(const v2& that) {
-        return v2(x + that.x, y + that.y);
+        return v2<T>(x + that.x, y + that.y);
     }
 
     v2 operator-(const v2& that) {
-        return v2(x - that.x, y - that.y);
+        return v2<T>(x - that.x, y - that.y);
     }
 
     v2 operator-=(const v2& that) {
-        return v2(x - that.x, y - that.y);
+        return v2<T>(x - that.x, y - that.y);
     }
 
     // Operator : Scalarproduct (dotproduct)
@@ -82,15 +81,15 @@ public:
     }
 
     virtual v2 operator*(const T& k) {
-        return v2(k * x, k * y);
+        return v2<T>(k * x, k * y);
     }
 
     v2 operator*=(const v2& that) {
-        return v2(x, y) * that;
+        return v2<T>(x, y) * that;
     }
 
     v2 operator*=(const T& k) {
-        return v2(x, y) * k;
+        return v2<T>(x, y) * k;
     }
 
     int operator/(const v2& that) {
@@ -110,7 +109,7 @@ public:
     }
 
     v2 operator!() {
-        return v2(-x, -y);
+        return v2<T>(-x, -y);
     }
 
     v2 project_onto(const v2& that) {
@@ -130,7 +129,7 @@ public:
     }
 
     v2 cross() {
-        return v2(-y, x);
+        return v2<T>(-y, x);
     }
 
     T det(const v2& that) {
@@ -168,11 +167,11 @@ public:
     T z;
 
     v3 operator+(const v3& that) {
-        return v3(this->x + that.x, this->y + that.y, z + that.z);
+        return v3<T>(this->x + that.x, this->y + that.y, z + that.z);
     }
 
     v3 operator-(const v3& that) {
-        return v3(this->x - that.x, this->y - that.y, z - that.z);
+        return v3<T>(this->x - that.x, this->y - that.y, z - that.z);
     }
 
     // Operator : Scalarproduct (dotproduct)
@@ -180,8 +179,8 @@ public:
         return (this->x * that.x) + (this->y * that.y) + (z * that.z);
     }
 
-    T operator*(T * __restrict__ k) {
-        return v3(*k * this->x, *k * this->y, *k * z);
+    v3 operator*(T * __restrict__ k) {
+        return v3<T>(*k * this->x, *k * this->y, *k * z);
     }
 
     T len()const {
@@ -189,7 +188,7 @@ public:
     }
 
     v3 cross(const v3& that) {
-        return v3(this->y * that.z - z * this->y, z * that.x - this->x * that.z, this->x * that.y - that.y - this->x);
+        return v3<T>(this->y * that.z - z * this->y, z * that.x - this->x * that.z, this->x * that.y - that.y - this->x);
     }
 
     T parallelogram_area(const v3& that) {
@@ -197,7 +196,7 @@ public:
     }
 
     T angle(const v3& that) {
-        return v3(this->x, this->y, z) * that / (len() * that.len());
+        return v3<T>(this->x, this->y, z) * that / (len() * that.len());
     }
 
 };
