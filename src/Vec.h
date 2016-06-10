@@ -22,6 +22,12 @@
  * THE SOFTWARE.
  */
 //
+// Class: Full 2d & 2d vector classes.
+// Description : With ..
+// - Functionality.
+// - Operational overload.
+// - Output stream overload.
+//
 // Created by rudz on 6/9/16.
 //
 #pragma clang diagnostic push
@@ -58,7 +64,15 @@ public:
         return v2(x + that.x, y + that.y);
     }
 
+    v2 operator+=(const v2& that) {
+        return v2(x + that.x, y + that.y);
+    }
+
     v2 operator-(const v2& that) {
+        return v2(x - that.x, y - that.y);
+    }
+
+    v2 operator-=(const v2& that) {
         return v2(x - that.x, y - that.y);
     }
 
@@ -67,12 +81,36 @@ public:
         return (x * that.x) + (y * that.y);
     }
 
-    virtual v2 operator*(T * __restrict__ k) {
-        return v2(*k * x, *k * y);
+    virtual v2 operator*(const T& k) {
+        return v2(k * x, k * y);
+    }
+
+    v2 operator*=(const v2& that) {
+        return v2(x, y) * that;
+    }
+
+    v2 operator*=(const T& k) {
+        return v2(x, y) * k;
     }
 
     int operator/(const v2& that) {
         return v2(x, y) * that == 0 ? 1 : 0;
+    }
+
+    int operator<(const v2& that) {
+        return len() < that.len();
+    }
+
+    int operator>(const v2& that) {
+        return len() > that.len();
+    }
+
+    int operator==(const v2& that) {
+        return x == that.x & y == that.y;
+    }
+
+    v2 operator!() {
+        return v2(-x, -y);
     }
 
     v2 project_onto(const v2& that) {
