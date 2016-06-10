@@ -80,20 +80,33 @@ class QrRadar {
 
 public:
     QrRadar() : it_(nh_) {
+        // default control option
         control = QR_CONTROL_ALL;
+
+        // reserve vector space
         pd_.reserve(MAX_VECTOR_SIZE);
-        throttle_ = 2.0; // test value!!!
+
+        // test value!!!
+        throttle_ = 2.0;
+
+        // configure zbar scanner to only allow QR codes
         scanner_.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
-        // Subscribe to input video feed and publish output video feed
+
+        // subscribe to input video feed and control / throttle topics
         sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
+
+        // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
+
+        // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
     }
 
     ~QrRadar() {
+        // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
         sub_image_.shutdown();
         sub_throttle_.shutdown();
@@ -117,10 +130,6 @@ public:
 
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
         uint32_t ros_time = ros::Time::now().nsec;
-
-        if (DBG) {
-            //cout << "ros time : " << ros_time << endl;
-        }
 
         // share test
         /*
@@ -292,7 +301,7 @@ public:
                 // save the image!!!
                 tmpss.str(string());
                 tmpss.clear();
-                tmpss << "./images/qr_image_";
+                tmpss << "./images/qr_image_" << symbol_counter << '_';
                 tmpss << ros_time;
                 tmpss << ".jpg";
 
