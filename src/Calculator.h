@@ -28,10 +28,12 @@
 #ifndef QR_RADAR2_CALCULATOR_H
 #define QR_RADAR2_CALCULATOR_H
 
-#define PI 3.14159265
+//#define PI 3.14159265
 
 #include "math.h"
 #include "Vec.h"
+#include "Rectangle.h"
+#include "ControlHeaders.h"
 
 //static const float D = 21.05; // cm
 static const float D_big = 21.45; // cm
@@ -45,7 +47,6 @@ static const float focal_front = d_big * Z / D_big; // focal width for front cam
 static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
 #define offset(a, b, c) (a - b) / c;
-
 
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
@@ -71,18 +72,26 @@ public:
         return (*first + *second) / 2;
     }
 
-    static double angle_a(double h1, double h2, double c) {
-        double A = atan((h1 - h2) / (360 / avg(&h1,&h2) )) * 180 / PI;
-
-        double a = c * cos(A);
-        return a;
+    static double angle_a(double h, double w) {
+        const double a = w / h;
+        if (a > 1 || a < -1) return 0;
+        // convert from radians to degrees :
+        return acos(a) * 180 / M_PI;
     }
 
-    static double angle_b(double h1, double h2, double c) {
+    static double dist_qr_projected(double h, double w, double dist, int modifier) {
+        const double a = w / h;
+        if (a > 1 || a < -1) return dist;
+        const double A = acos(a);
+        return sin(A) * dist * modifier;
+    }
 
-        double A = atan((h1 - h2) / avg(&h1,&h2)) * 180 / PI;
-        double a = c / sin(A);
-        return a;
+    static double dist_wall(double h, double w, double dist) {
+        const double a = w / h;
+        if (a > 1 || a < -1) return dist;
+        // convert from radians to degrees :
+        const double A = acos(a);// * 180 / M_PI;
+        return cos(A) * dist;
     }
 
 
@@ -168,6 +177,75 @@ public:
 
      *
      */
+
+    //Function : Get scanning image dimensions based on the current control setting
+    //Description : Depending on the setting, the rectangular configuration is set
+    //              to reflect the current location where the scanner is to look.
+    intrect static get_img_dim(int * __restrict__ control, int *cols, int *rows) {
+        intrect ret;
+        switch (*control) {
+            case QR_CONTROL_ALL:
+                ret.top = 0;
+                ret.bottom = *rows;
+                ret.left = 0;
+                ret.right = *cols;
+                break;
+            case QR_CONTROL_LEFT:
+                ret.top = 0;
+                ret.bottom = *rows;
+                ret.left = 0;
+                ret.right = *cols >> 1;
+                break;
+            case QR_CONTROL_RIGHT:
+                ret.top = 0;
+                ret.bottom = *rows;
+                ret.left = *cols >> 1;
+                ret.right = *cols;
+                break;
+            case QR_CONTROL_UPPER:
+                ret.top = 0;
+                ret.bottom = *rows >> 1;
+                ret.left = 0;
+                ret.right = *cols;
+                break;
+            case QR_CONTROL_LOWER:
+                ret.top = *rows >> 1;
+                ret.bottom = *rows;
+                ret.left = 0;
+                ret.right = *cols;
+                break;
+            case QR_CONTROL_QUAD_1:
+                ret.top = *rows;
+                ret.bottom = *rows >> 1;
+                ret.left = *cols >> 1;
+                ret.right = *rows;
+                break;
+            case QR_CONTROL_QUAD_2:
+                ret.top = *rows;
+                ret.bottom = *rows >> 1;
+                ret.left = 0;
+                ret.right = *cols >> 1;
+                break;
+            case QR_CONTROL_QUAD_3:
+                ret.top = *rows >> 1;
+                ret.bottom = *rows;
+                ret.left = 0;
+                ret.right = *cols >> 1;
+                break;
+            case QR_CONTROL_QUAD_4:
+                ret.top = *rows >> 1;
+                ret.bottom = *rows;
+                ret.left = *cols >> 1;
+                ret.right = *cols;
+                // yep, fallthrough...
+            default:break;
+        }
+        return ret;
+    }
+
+
+
+
 };
 
 #endif //QR_RADAR2_CALCULATOR_H

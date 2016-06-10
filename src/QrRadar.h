@@ -43,6 +43,7 @@
 
 #include "ControlHeaders.h"
 #include "Calculator.h"
+#include "Rectangle.h"
 
 static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
@@ -52,6 +53,7 @@ static const int MAX_VECTOR_SIZE = 4;
 #define TRUE 1
 
 #define smallest(a, b) (a < b ? a : b)
+#define largest(a, b) (a < b ? b : a)
 
 using namespace std;
 
@@ -81,7 +83,7 @@ class QrRadar {
 public:
     QrRadar() : it_(nh_) {
         // default control option
-        control = QR_CONTROL_ALL;
+        control = QR_CONTROL_LEFT;
 
         // reserve vector space
         pd_.reserve(MAX_VECTOR_SIZE);
@@ -103,9 +105,13 @@ public:
 
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
+
+        cout << "QR-Radar ROS-node initialized..." << endl;
     }
 
     ~QrRadar() {
+
+
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
         sub_image_.shutdown();
@@ -155,6 +161,9 @@ public:
             return;
         }
 
+        // configure scanning area
+        intrect img_dim = Calculator::get_img_dim(&control, &cv_ptr->image.cols, &cv_ptr->image.rows);
+
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
@@ -198,13 +207,20 @@ public:
 
             // ****** QR META CALCULATION *********
             pd_.clear();
-            for (unsigned int i = 0; i < MAX_VECTOR_SIZE; i++) {
-                CvPoint2D32f data;
-                data.x = symbol->get_location_x(i);
-                data.y = symbol->get_location_y(i);
-                symbol->get_count();
-                pd_.push_back(v2<int>(symbol->get_location_x(i), symbol->get_location_y(i)));
+            pd_.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
+            pd_.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
+            pd_.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
+            pd_.push_back(v2<int>(symbol->get_location_x(3), symbol->get_location_y(3)));
+
+            // set dimension for qr (using widest dimensions !!)
+            intrect qr_rect(smallest(pd_[0].x, pd_[1].x), smallest(pd_[0].y, pd_[2].y), largest(pd_[2].x, pd_[3].x), largest(pd_[1].y, pd_[2].y));
+            if (qr_rect > img_dim) {
+                cout << "qr code dimensions are not within controller settings.." << endl;
+                return;
             }
+
+
+
 
             v2<int> qr_c; // this is the main center point from where all calculations are taking place!
 
@@ -222,10 +238,12 @@ public:
             /* calculate center of image (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
-            if (controlbreak(qr_c, img_c) == TRUE) {
-                cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
-                continue;
-            }
+
+            /* check if the qr is in a valid position */
+            //if (controlbreak(qr_c, img_c) == TRUE) {
+            //    cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
+            //    continue;
+            //}
 
 
             int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
@@ -246,15 +264,27 @@ public:
             //double z_cm_width = Calculator::distance_z_wall(&qr_width);
             //double z_cm_height = Calculator::distance_z_wall(&qr_height);
 
-            cout << "Symbol " << symbol_counter << '/' << scans << endl;
-            cout << "c2c          (pix) : " << distance_c2c << endl;
-            cout << "distance_c2c (w) (cm)  : " << z_cm_.x << endl;
-            cout << "distance_c2c (h) (cm)  : " << z_cm_.y << endl;
-            cout << "smallest dist (cm) : " << smallest(abs(z_cm_.x), abs(z_cm_.y)) << endl;
-            cout << "cm offset    (cm)  : " << cm_real << endl;
-            cout << "off.hori     (cm)  : " << offsets_cm.x << endl;
-            cout << "off.vert     (cm)  : " << offsets_cm.y << endl;
-            cout << "angular dist (cm)  : " << Calculator::angle_a(qr_height_left,qr_height_right,z_cm_.y) << " " << qr_height_left << " " << qr_height_right << endl;
+            double z_cm_smallest = smallest(abs(z_cm_.x), abs(z_cm_.y));
+
+            // angular calculations
+            double angle_a = Calculator::angle_a(qr_height, qr_width);
+            double dist_qr_projected = Calculator::dist_qr_projected(qr_height, qr_width, z_cm_smallest, qr_height_left >= qr_height_right ? 1 : -1);
+            double dist_cam_wall = Calculator::dist_wall(qr_height, qr_width, z_cm_smallest);
+
+
+            cout << "Image rect            : " << img_dim << endl;
+            cout << "QR rect               : " << qr_rect << endl;
+            cout << "Symbol # / total      : " << symbol_counter << '/' << scans << endl;
+            cout << "c2c          (pix)    : " << distance_c2c << endl;
+            cout << "dist c2c (w) (cm)     : " << z_cm_.x << endl;
+            cout << "dist c2c (h) (cm)     : " << z_cm_.y << endl;
+            cout << "smallest dist (cm)    : " << z_cm_smallest << endl;
+            cout << "cm offset c2c(cm)     : " << cm_real << endl;
+            cout << "off.hori     (cm)     : " << offsets_cm.x << endl;
+            cout << "off.vert     (cm)     : " << offsets_cm.y << endl;
+            cout << "angular a   (deg)     : " << angle_a << endl;
+            cout << "dist qr projected (cm): " << dist_qr_projected << endl;
+            cout << "dist cam to wall (cm) : " << dist_cam_wall << endl;
 
             stream_qr_.str(string());
             stream_qr_.clear();
@@ -262,13 +292,19 @@ public:
             stream_qr_ << '~';
             stream_qr_ << qr;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << cm_real;
+            stream_qr_ << cm_real;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << offsets_cm.x;
+            stream_qr_ << offsets_cm.x;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << offsets_cm.y;
+            stream_qr_ << offsets_cm.y;
             stream_qr_ << '~';
-            stream_qr_ << setfill('0') << setw(10) << smallest(abs(z_cm_.x), abs(z_cm_.y));
+            stream_qr_ << smallest(abs(z_cm_.x), abs(z_cm_.y));
+            stream_qr_ << '~';
+            stream_qr_ << angle_a;
+            stream_qr_ << '~';
+            stream_qr_ << dist_qr_projected;
+            stream_qr_ << '~';
+            stream_qr_ << dist_cam_wall;
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
@@ -288,7 +324,13 @@ public:
                 cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255), 1, 8, 0);
 
                 // draw a box around the DETECTED Qr-Code (!!)
-                cv::rectangle(cv_ptr->image, cvRect((int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 0, 0), 1, 8, 0);
+                cv::rectangle(cv_ptr->image, cvRect(qr_rect.left, qr_rect.top, qr_rect.right - qr_rect.left, qr_rect.bottom - qr_rect.top), CV_RGB(0, 0, 0), 1, 8, 0);
+                cv::circle(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(pd_[1].x, pd_[1].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(pd_[3].x, pd_[3].y), 3, CV_RGB(255, 255, 255));
+
+                        //(int) roundf(pd_[0].x), (int) roundf(pd_[0].y), (int) roundf(pd_[2].x - pd_[0].x), (int) roundf(pd_[1].y - pd_[0].y)), CV_RGB(0, 0, 0), 1, 8, 0);
 
                 // write the pixels (width) for the Qr-Code in the lower right side of the image!
                 ostringstream tmpss;

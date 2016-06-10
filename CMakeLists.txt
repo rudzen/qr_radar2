@@ -36,7 +36,7 @@ catkin_package()
 ## Build talker and listener
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_executable(qr_radar2 src/QrRadar.cpp src/Vec.h src/ControlHeaders.h src/Calculator.h)
+add_executable(qr_radar2 src/QrRadar.cpp src/Vec.h src/Rectangle.h src/ControlHeaders.h src/Calculator.h)
 target_link_libraries(qr_radar2 zbar ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 roslint_cpp()
