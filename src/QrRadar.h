@@ -40,18 +40,16 @@
 #include "boost/unordered_map.hpp"
 #include <vector>
 #include <string>
-#include <cmath>
 
 #include "ControlHeaders.h"
 #include "Calculator.h"
 #include "Rectangle.h"
+#include "Data.h"
+#include "Map.h"
 
 #define DBG 1
 #define FALSE 0
 #define TRUE 1
-
-#define smallest(a, b) (a < b ? a : b)
-#define largest(a, b) (a < b ? b : a)
 
 using namespace std;
 
@@ -60,6 +58,8 @@ static const int MAX_VECTOR_SIZE = 4;
 
 int display_output = 1;
 int scan_images = 1;
+
+typedef double *measure_type;
 
 class QrRadar {
 
@@ -72,6 +72,8 @@ class QrRadar {
     ros::Subscriber sub_display_disable_;
     ros::Subscriber sub_scan_enable_;
     ros::Subscriber sub_scan_disable_;
+
+    mapqr qr_mapping;
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
@@ -105,7 +107,9 @@ public:
         scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
 
         // subscribe to input video feed and control / throttle topics etc
-        sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+
+        sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
+        //sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
         sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
@@ -199,6 +203,7 @@ public:
         for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
 
             if (symbol->get_location_size() != MAX_VECTOR_SIZE) {
+                cout << "FATAL READ ERROR FOR QR-CODE!" << endl;
                 // this is not good, it means the QR-Code is not read correctly or some memory corruption has occoured!!!!
                 continue;
             }
@@ -206,22 +211,22 @@ public:
             ++symbol_counter;
 
             /* grab the text from the symbol */
-            string qr = symbol->get_data();
+            string qr_string = symbol->get_data();
 
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
-                if (!qr_memory_.empty() && qr_memory_.count(qr) > 0) {
+                if (!qr_memory_.empty() && qr_memory_.count(qr_string) > 0) {
                     // verify throttle timer to erase it from memory
-                    if (ros::Time::now() > qr_memory_.at(qr)) {
+                    if (ros::Time::now() > qr_memory_.at(qr_string)) {
                         cout << "Throttle timeout reached, removing data from memory." << endl;;
-                        qr_memory_.erase(qr);
+                        qr_memory_.erase(qr_string);
                     } else {
                         // timeout was not reached, just move along the found symbols
                         continue;
                     }
                 }
                 // save the qr code in memory and define new timer for it's erasure
-                qr_memory_.insert(make_pair(qr, ros::Time::now() + ros::Duration(throttle_)));
+                qr_memory_.insert(make_pair(qr_string, ros::Time::now() + ros::Duration(throttle_)));
             }
 
             // ****** QR META STUFF *********
@@ -251,72 +256,52 @@ public:
             qr_c.x /= counter;
             qr_c.y /= counter;
 
-            /* calculate center of image (generic for any size) */
+            /* set the image center (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
             /* check if the qr is in a valid position */
+            // currently not used...
+
             //if (controlbreak(qr_c, img_c) == TRUE) {
             //    cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
             //    continue;
             //}
 
-
             int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
             double cm_real = Calculator::pix_to_cm(&distance_c2c);
 
+            // set the offset in cm from qr center to image center in for both x & y
             v2<double> offsets_cm(Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real), Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real));
 
-            // calculate the Z distance_c2c...
-            double qr_width_top = pd_[3].x - pd_[0].x;
-            double qr_width_buttom =  pd_[2].x - pd_[1].x;
-            double qr_width = Calculator::avg(&qr_width_top, &qr_width_buttom);
-            double qr_height_left = pd_[1].y - pd_[0].y;
-            double qr_height_right = pd_[2].y - pd_[3].y;
-            double qr_height = Calculator::avg(&qr_height_left, &qr_height_right);
-            v2<double> z_cm_(Calculator::distance_z_wall(&qr_width), Calculator::distance_z_wall(&qr_height));
-
-            // use the smallest distance
-            const double z_cm_smallest = smallest(abs(z_cm_.x), abs(z_cm_.y));
-
-            // angular calculations
-            const double angle_a = Calculator::angle_a(qr_height, qr_width);
-            const double dist_qr_projected = Calculator::dist_qr_projected(qr_height, qr_width, z_cm_smallest, qr_height_left >= qr_height_right ? 1 : -1);
-            const double dist_cam_wall = Calculator::dist_wall(qr_height, qr_width, z_cm_smallest);
+            // populate the data class, this will automaticly calculate the needed bits and bobs
+            ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y);
 
             // info output
             cout << "Image rect            : " << img_dim << endl;
             cout << "QR rect               : " << qr_rect << endl;
             cout << "Symbol # / total      : " << symbol_counter << '/' << scans << endl;
             cout << "c2c          (pix)    : " << distance_c2c << endl;
-            cout << "dist c2c (w) (cm)     : " << z_cm_.x << endl;
-            cout << "dist c2c (h) (cm)     : " << z_cm_.y << endl;
-            cout << "smallest dist (cm)    : " << z_cm_smallest << endl;
+            cout << "smallest dist (cm)    : " << qr.dist_z << endl;
             cout << "cm offset c2c(cm)     : " << cm_real << endl;
             cout << "off.hori     (cm)     : " << offsets_cm.x << endl;
             cout << "off.vert     (cm)     : " << offsets_cm.y << endl;
-            cout << "angular a   (deg)     : " << angle_a << endl;
-            cout << "dist qr projected (cm): " << dist_qr_projected << endl;
-            cout << "dist cam to wall (cm) : " << dist_cam_wall << endl;
+            cout << "angular a   (deg)     : " << qr.angle << endl;
+            cout << "dist qr projected (cm): " << qr.dist_z_projected << endl;
+            cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << endl;
+
+            //qr_mapping.set_visited(&qr_string, &qr.dist_z);
 
             stream_qr_.str(string());
             stream_qr_.clear();
             stream_qr_ << setfill('0') << setw(10) << ros_time;
             stream_qr_ << '~';
-            stream_qr_ << qr;
-            stream_qr_ << '~';
-            stream_qr_ << cm_real;
+            stream_qr_ << qr_string;
             stream_qr_ << '~';
             stream_qr_ << offsets_cm.x;
             stream_qr_ << '~';
             stream_qr_ << offsets_cm.y;
             stream_qr_ << '~';
-            stream_qr_ << z_cm_smallest;
-            stream_qr_ << '~';
-            stream_qr_ << angle_a;
-            stream_qr_ << '~';
-            stream_qr_ << dist_qr_projected;
-            stream_qr_ << '~';
-            stream_qr_ << dist_cam_wall;
+            stream_qr_ << qr;
 
             /* publish the qr code information */
             msg_qr_.data = stream_qr_.str();
@@ -327,11 +312,16 @@ public:
             if (display_output) {
 
                 // draw lines on image through the center in both x and y
-                cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255), 1, 8, 0);
-                cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255), 1, 8, 0);
+                cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255));
+                cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
 
                 // draw a box around the DETECTED Qr-Code (!!)
-                cv::rectangle(cv_ptr->image, cvRect(qr_rect.left, qr_rect.top, qr_rect.right - qr_rect.left, qr_rect.bottom - qr_rect.top), CV_RGB(0, 0, 0), 1, 8, 0);
+                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(255, 255, 255));
+                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(255, 255, 255));
+                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(255, 255, 255));
+                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(255, 255, 255));
+
+                //cv::rectangle(cv_ptr->image, cvRect(qr_rect.left, qr_rect.top, qr_rect.right - qr_rect.left, qr_rect.bottom - qr_rect.top), CV_RGB(0, 0, 0), 1, 8, 0);
                 cv::circle(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), 3, CV_RGB(255, 255, 255));
                 cv::circle(cv_ptr->image, cvPoint(pd_[1].x, pd_[1].y), 3, CV_RGB(255, 255, 255));
                 cv::circle(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), 3, CV_RGB(255, 255, 255));
@@ -339,10 +329,9 @@ public:
 
                 ostringstream tmpss;
 
-                tmpss << z_cm_smallest << ' ' << dist_qr_projected;
+                tmpss << qr.dist_z << ' ' << qr.dist_z_projected;
 
                 cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
-
 
                 // show the image
                 cv::imshow(OPENCV_WINDOW, cv_ptr->image);

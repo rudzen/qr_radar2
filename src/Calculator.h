@@ -28,8 +28,6 @@
 #ifndef QR_RADAR2_CALCULATOR_H
 #define QR_RADAR2_CALCULATOR_H
 
-//#define PI 3.14159265
-
 #include "math.h"
 #include "Vec.h"
 #include "Rectangle.h"
@@ -47,6 +45,8 @@ static const float focal_front = d_big * Z / D_big; // focal width for front cam
 static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
 #define offset(a, b, c) (a - b) / c;
+#define smallest(a, b) (a < b ? a : b)
+#define largest(a, b) (a < b ? b : a)
 
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
@@ -54,7 +54,6 @@ class Calculator {
 private:
 
 public:
-
 
     // Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
@@ -79,11 +78,25 @@ public:
         return acos(a) * 180 / M_PI;
     }
 
+    static double angle_a(double * __restrict__ h, double * __restrict__ w) {
+        const double a = *w / *h;
+        if (a > 1 || a < -1) return 0;
+        // convert from radians to degrees :
+        return acos(a) * 180 / M_PI;
+    }
+
     static double dist_qr_projected(double h, double w, double dist, int modifier) {
         const double a = w / h;
         if (a > 1 || a < -1) return dist;
         const double A = acos(a);
         return sin(A) * dist * modifier;
+    }
+
+    static double dist_qr_projected(double * __restrict__ h, double * __restrict__ w, double * __restrict__ dist) {
+        const double a = *w / *h;
+        if (a > 1 || a < -1) return *dist;
+        const double A = acos(a);
+        return sin(A) * *dist;
     }
 
     static double dist_wall(double h, double w, double dist) {
