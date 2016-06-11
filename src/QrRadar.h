@@ -316,10 +316,10 @@ public:
                 cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
 
                 // draw a box around the DETECTED Qr-Code (!!)
-                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(255, 255, 255));
-                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(255, 255, 255));
-                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(255, 255, 255));
-                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(255, 255, 255));
+                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(0, 0, 0));
 
                 //cv::rectangle(cv_ptr->image, cvRect(qr_rect.left, qr_rect.top, qr_rect.right - qr_rect.left, qr_rect.bottom - qr_rect.top), CV_RGB(0, 0, 0), 1, 8, 0);
                 cv::circle(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), 3, CV_RGB(255, 255, 255));
