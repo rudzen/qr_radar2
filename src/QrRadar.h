@@ -47,49 +47,67 @@
 #include "Data.h"
 #include "Map.h"
 
-#define DBG 1
-#define FALSE 0
-#define TRUE 1
-
 using namespace std;
 
 static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
 
-int display_output = 1;
-int scan_images = 1;
-
-typedef double *measure_type;
-
+/*! \brief Main QR-Scanning class.
+ *
+ *  The main controller class for handling the inputs and outputs
+ *  that are associated with this package. It will automaticly
+ *  calculate and publish the information gathered from the
+ *  subscriped image through the designated callback function(s).
+ */
 class QrRadar {
 
+    bool display_output = false;
+    /*!< Depending on the state, will display output window of scanned QR-code */
+    bool scan_images = true;
+    /*!< If set to false, any incomming images from the image topic will be ignored */
+
     ros::NodeHandle nh_;
+    /*!< The nodehandler for the topics */
     image_transport::ImageTransport it_;
+    /*!< Makes it possible to recieve messages in the form of an image */
     image_transport::Subscriber sub_image_;
+    /*!< The subscription object for the image topic */
     ros::Subscriber sub_throttle_;
+    /*!< Subscription object for setting the throttle */
     ros::Subscriber sub_control_;
+    /*!< Subscription object for setting the control settings */
     ros::Subscriber sub_display_enable_;
+    /*!< Subscription object to enable display window */
     ros::Subscriber sub_display_disable_;
+    /*!< Subscription object to disable the display window */
     ros::Subscriber sub_scan_enable_;
+    /*!< Subscription object to enable scanning of incomming images */
     ros::Subscriber sub_scan_disable_;
+    /*!< Subscription object to disable scanning of incomming images */
 
     mapqr qr_mapping;
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
-    boost::unordered_map<std::string, ros::Time> qr_memory_;
+    boost::unordered_map<std::string, ros::Time> qr_memory_;    /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
 #pragma clang diagnostic pop
     zbar::ImageScanner scanner_;
+    /*!< The scanner object which scans for QR-code(s) in a given image */
     ros::Publisher pub_qr_;
+    /*!< Publisher for the result(s) gathered from the QR-code */
     double throttle_; // to slow down the aggresiveness of publishing!!
 
     std_msgs::String msg_qr_;
+    /*!< String message object for publishing the result */
     std_msgs::String msg_control_;
+    /*!< String message for async feedback on the state of the throttle changes */
 
     ostringstream stream_qr_;
+    /*!< Output stringstream for gathering the information which is to be published */
     vector<v2<int>> pd_;
+    /*!< vector that contains the location of all 4 QR-code corners from the scan */
 
-    int control;
+    int control;                                /*!< Control integer */
 
 public:
     QrRadar() : it_(nh_) {
@@ -109,6 +127,7 @@ public:
         // subscribe to input video feed and control / throttle topics etc
 
         sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
+        0
         //sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
@@ -126,6 +145,10 @@ public:
         cout << "QR-Radar ROS-node initialized..." << endl;
     }
 
+    /*! \brief Brief description.
+         Brief description continued.
+ *  Detailed description starts here.
+ */
     ~QrRadar() {
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
@@ -142,12 +165,15 @@ public:
         stream_qr_.clear();
     }
 
-    // Function: Image callback from ROS.
-    // Description: It is automaticly set up through the class construction.
+    /*! \brief Image callback function
+     *
+     * Is triggered when there is a new image in the topic queue from ROS. It is the main controller function of the entire package,
+     *  and thus ties everything together.
+     */
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
         // make sure the control unit acts quickly!
-        if (control == QR_CONTROL_NONE || scan_images == FALSE) {
+        if (control == QR_CONTROL_NONE || scan_images == false) {
             return;
         }
 
@@ -181,7 +207,7 @@ public:
         }
 
         // configure scanning area
-        intrect img_dim = Calculator::get_img_dim(&control, &cv_ptr->image.cols, &cv_ptr->image.rows);
+        intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
 
         // simple whitebalance test
         //Calculator::balance_white(cv_ptr->image);
@@ -193,7 +219,7 @@ public:
         /* scan the image for QR codes */
         const int scans = scanner_.scan(zbar_image);
 
-        if (scans == FALSE) {
+        if (scans == 0) {
             return;
         }
 
@@ -353,10 +379,14 @@ public:
 
                 cv::waitKey(3);
             }
-
         }
     }
 
+    /*! \brief Checks if control setting is in effect
+    *
+    * When the control is defined (through the related topis), this function will check if the corresponding control setting
+    * violates the current qr code in relation to the image.
+    */
     int controlbreak(v2<int> qr, v2<int> img) {
         // *********** CONTROL CHECK #1 ***************
         // (for positional check of scanned code)
@@ -395,28 +425,37 @@ public:
                 }
             case QR_CONTROL_NONE:
                 return 1;
-            default:break;
+            default:
+                break;
         }
         return 1;
     }
 
-
-
+    /*! \brief Set throttle callback function through topic
+    *
+    * Will try to set the incomming throttle value, it guards against unwanted information and will
+    * not allow invalid values.
+    */
     void set_throttle(const std_msgs::String::ConstPtr msg) {
         cout << "Got throttle information....";
         try {
-            double temp = stod (msg->data.c_str());
+            double temp = stod(msg->data.c_str());
             if (temp > 0.0) {
                 cout << " changed " << throttle_ << " -> " << temp << endl;
                 throttle_ = temp;
             }
-        }  catch (const invalid_argument& ia) {
+        } catch (const invalid_argument &ia) {
             cout << " but it was invalid : " << ia.what() << endl;
-        }  catch (const std::out_of_range& uor) {
+        } catch (const std::out_of_range &uor) {
             cout << " but it was out of range : " << uor.what() << endl;
         }
     }
 
+    /*! \brief Set control callback function through topic
+    *
+    * Will try to set the incomming control value, it guards against unwanted information and will
+    * not allow invalid values. It will always respond with a message indicating success or fauilure.
+    */
     void set_control(const std_msgs::String::ConstPtr msg) {
         cout << "Got control parameter : " << msg->data.c_str() << endl;
         const int control_msg = stoi(msg->data.c_str());
@@ -442,25 +481,43 @@ public:
         pub_qr_.publish(msg_control_);
     }
 
+    /*! \brief Enables display output
+    *
+    * Enables the display_output setting for this node.
+    */
     void display_enable(const std_msgs::Empty empty) {
         cout << "display enabled.." << endl;
-        display_output = 1;
+        display_output = true;
     }
 
+    /*! \brief Disables display output
+    *
+    * Disables and closes any open output window open for this node.
+    */
     void display_disable(const std_msgs::Empty empty) {
         cout << "display disabled.." << endl;
-        display_output = 0;
+        display_output = false;
+        cv::destroyAllWindows();
     }
 
+    /*! \brief Enables QR scanning
+    *
+    * Disables current image subscription and enables parsed topic.
+    */
     void scan_enable(const std_msgs::String::ConstPtr msg) {
         cout << "scan enabled.." << endl;
-        scan_images = 1;
+        scan_images = true;
+        sub_image_.shutdown();
         sub_image_ = it_.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
     }
 
+    /*! \brief Disables QR scanning
+    *
+    * Disables current image subscription.
+    */
     void scan_disable(const std_msgs::Empty empty) {
         cout << "scan disabled.." << endl;
-        scan_images = 0;
+        scan_images = false;
         sub_image_.shutdown();
     }
 

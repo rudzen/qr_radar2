@@ -194,62 +194,62 @@ public:
     //Function : Get scanning image dimensions based on the current control setting
     //Description : Depending on the setting, the rectangular configuration is set
     //              to reflect the current location where the scanner is to look.
-    intrect static get_img_dim(int * __restrict__ control, int *cols, int *rows) {
+    intrect static get_img_dim(int * __restrict__ control, int cols, int rows) {
         intrect ret;
         switch (*control) {
             case QR_CONTROL_ALL:
                 ret.top = 0;
-                ret.bottom = *rows;
+                ret.bottom = rows;
                 ret.left = 0;
-                ret.right = *cols;
+                ret.right = cols;
                 break;
             case QR_CONTROL_LEFT:
                 ret.top = 0;
-                ret.bottom = *rows;
+                ret.bottom = rows;
                 ret.left = 0;
-                ret.right = *cols >> 1;
+                ret.right = cols >> 1;
                 break;
             case QR_CONTROL_RIGHT:
                 ret.top = 0;
-                ret.bottom = *rows;
-                ret.left = *cols >> 1;
-                ret.right = *cols;
+                ret.bottom = rows;
+                ret.left = cols >> 1;
+                ret.right = cols;
                 break;
             case QR_CONTROL_UPPER:
                 ret.top = 0;
-                ret.bottom = *rows >> 1;
+                ret.bottom = rows >> 1;
                 ret.left = 0;
-                ret.right = *cols;
+                ret.right = cols;
                 break;
             case QR_CONTROL_LOWER:
-                ret.top = *rows >> 1;
-                ret.bottom = *rows;
+                ret.top = rows >> 1;
+                ret.bottom = rows;
                 ret.left = 0;
-                ret.right = *cols;
+                ret.right = cols;
                 break;
             case QR_CONTROL_QUAD_1:
-                ret.top = *rows;
-                ret.bottom = *rows >> 1;
-                ret.left = *cols >> 1;
-                ret.right = *rows;
+                ret.top = rows;
+                ret.bottom = rows >> 1;
+                ret.left = cols >> 1;
+                ret.right = rows;
                 break;
             case QR_CONTROL_QUAD_2:
-                ret.top = *rows;
-                ret.bottom = *rows >> 1;
+                ret.top = rows;
+                ret.bottom = rows >> 1;
                 ret.left = 0;
-                ret.right = *cols >> 1;
+                ret.right = cols >> 1;
                 break;
             case QR_CONTROL_QUAD_3:
-                ret.top = *rows >> 1;
-                ret.bottom = *rows;
+                ret.top = rows >> 1;
+                ret.bottom = rows;
                 ret.left = 0;
-                ret.right = *cols >> 1;
+                ret.right = cols >> 1;
                 break;
             case QR_CONTROL_QUAD_4:
-                ret.top = *rows >> 1;
-                ret.bottom = *rows;
-                ret.left = *cols >> 1;
-                ret.right = *cols;
+                ret.top = rows >> 1;
+                ret.bottom = rows;
+                ret.left = cols >> 1;
+                ret.right = cols;
                 // yep, fallthrough...
             default:break;
         }
