@@ -26,6 +26,9 @@ private:
 
 public:
 
+    double section_size = 100.0; // real size in cm
+
+
 /*
  * W0X.0X/DISTANCE IN M
  *

@@ -85,7 +85,7 @@ class QrRadar {
     ros::Subscriber sub_scan_disable_;
     /*!< Subscription object to disable scanning of incomming images */
 
-    mapqr qr_mapping;
+    //mapqr qr_mapping;
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
@@ -95,9 +95,16 @@ class QrRadar {
     /*!< The scanner object which scans for QR-code(s) in a given image */
     ros::Publisher pub_qr_;
     /*!< Publisher for the result(s) gathered from the QR-code */
+    ros::Publisher pub_pp_;
+    /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
+    ros::Publisher pub_pp_show_;
+    /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
+
     double throttle_; // to slow down the aggresiveness of publishing!!
 
     std_msgs::String msg_qr_;
+    /*!< String message object for publishing the result */
+    std_msgs::Empty msg_pp_show;
     /*!< String message object for publishing the result */
     std_msgs::String msg_control_;
     /*!< String message for async feedback on the state of the throttle changes */
@@ -127,8 +134,8 @@ public:
         // subscribe to input video feed and control / throttle topics etc
 
         sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
-        0
         //sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
         sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
@@ -138,11 +145,16 @@ public:
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
+        pub_pp_ = nh_.advertise<std_msgs::String>("prettyprint", 1);
+        pub_pp_show_ = nh_.advertise<std_msgs::Empty>("prettyprint/show", 1);
 
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
 
         cout << "QR-Radar ROS-node initialized..." << endl;
+
+        //graph.generate_map();
+        //cout << g << endl;
     }
 
     /*! \brief Brief description.
@@ -174,6 +186,10 @@ public:
 
         // make sure the control unit acts quickly!
         if (control == QR_CONTROL_NONE || scan_images == false) {
+            return;
+        }
+
+        if (pub_qr_.getNumSubscribers() == 0) {
             return;
         }
 
@@ -302,38 +318,44 @@ public:
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y);
 
+            cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
+
             // info output
-            cout << "Image rect            : " << img_dim << endl;
-            cout << "QR rect               : " << qr_rect << endl;
-            cout << "Symbol # / total      : " << symbol_counter << '/' << scans << endl;
-            cout << "c2c          (pix)    : " << distance_c2c << endl;
-            cout << "smallest dist (cm)    : " << qr.dist_z << endl;
-            cout << "cm offset c2c(cm)     : " << cm_real << endl;
-            cout << "off.hori     (cm)     : " << offsets_cm.x << endl;
-            cout << "off.vert     (cm)     : " << offsets_cm.y << endl;
-            cout << "angular a   (deg)     : " << qr.angle << endl;
-            cout << "dist qr projected (cm): " << qr.dist_z_projected << endl;
-            cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << endl;
+            cout << "Image rect            : " << img_dim << '\n';
+            cout << "QR rect               : " << qr_rect << '\n';
+            cout << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
+            cout << "c2c          (pix)    : " << distance_c2c << '\n';
+            cout << "smallest dist (cm)    : " << qr.dist_z << '\n';
+            cout << "cm offset c2c(cm)     : " << cm_real << '\n';
+            cout << "off.hori     (cm)     : " << offsets_cm.x << '\n';
+            cout << "off.vert     (cm)     : " << offsets_cm.y << '\n';
+            cout << "angular a   (deg)     : " << qr.angle << '\n';
+            cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
+            cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
 
             //qr_mapping.set_visited(&qr_string, &qr.dist_z);
 
-            stream_qr_.str(string());
-            stream_qr_.clear();
-            stream_qr_ << setfill('0') << setw(10) << ros_time;
-            stream_qr_ << '~';
-            stream_qr_ << qr_string;
-            stream_qr_ << '~';
-            stream_qr_ << offsets_cm.x;
-            stream_qr_ << '~';
-            stream_qr_ << offsets_cm.y;
-            stream_qr_ << '~';
-            stream_qr_ << qr;
+            if (pub_qr_.getNumSubscribers() > 0) {
+                stream_qr_.str(string());
+                stream_qr_.clear();
+                stream_qr_ << setfill('0') << setw(10) << ros_time;
+                stream_qr_ << '~';
+                stream_qr_ << qr_string;
+                stream_qr_ << '~';
+                stream_qr_ << offsets_cm.x;
+                stream_qr_ << '~';
+                stream_qr_ << offsets_cm.y;
+                stream_qr_ << '~';
+                stream_qr_ << qr;
 
-            /* publish the qr code information */
-            msg_qr_.data = stream_qr_.str();
-            pub_qr_.publish(msg_qr_);
-            uint32_t const time_end = ros::Time::now().sec;
-            cout << "Time for scanning QR code and calculating (ms) = " << ((time_end - ros_time) / 1000000) << endl;
+
+                /* publish the qr code information */
+                msg_qr_.data = stream_qr_.str();
+                pub_qr_.publish(msg_qr_);
+                pub_pp_.publish(msg_qr_);
+                pub_pp_show_.publish(msg_pp_show);
+            }
+
 
             if (display_output) {
 
@@ -371,10 +393,10 @@ public:
 
                 try {
                     cv::imwrite(tmpss.str(), cv_ptr->image);
-                    cout << "Saved image file as " << tmpss.str() << endl;
+                    cout << "Saved image file as " << tmpss.str() << '\n';
                 }
                 catch (const std::runtime_error& ex) {
-                    cout << "Exception saving image : " << ex.what() << endl;
+                    cout << "Exception saving image : " << ex.what() << '\n';
                 }
 
                 cv::waitKey(3);

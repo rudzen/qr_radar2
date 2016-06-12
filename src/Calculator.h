@@ -111,11 +111,15 @@ public:
     // Function: Perpendicular Distance of a Point J from line formed by Points L and M; Equation of the line ax+by+c=0
     // Description: Given 3 points, the function derives the line quation of the first two points,
     // calculates and returns the perpendicular distance of the the 3rd point from this line.
-    static double lineEquation(CvPoint2D32f L, CvPoint2D32f M, CvPoint2D32f J) {
-        const float a = -((M.y - L.y) / (M.x - L.x));
+    /*
+    static double lineEquation(v2 L, v2 M, v2 J) {
+        int my_minus_ly = M.y - L.y;
+        int mx_minus_lx = M.x - L.x;
+        const double a = -((my_minus_ly) / (mx_minus_lx));
         // Now that we have a from the equation ax + by + c, time to substitute (x,y) by values from the Point J
-        return (a * J.x + (1.0 * J.y) + (((M.y - L.y) / (M.x - L.x)) * L.x) - L.y) / sqrt((a * a) + (1.0 * 1.0));
+        return (a * J.x + (1.0 * J.y) + (((my_minus_ly) / (mx_minus_lx)) * L.x) - L.y) / sqrt((a * a) + 1.0);
     }
+     */
 
     // Function : Converts pixels to cm
     static double pix_to_cm(int *__restrict__ distance) {
