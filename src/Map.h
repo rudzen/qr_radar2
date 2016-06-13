@@ -143,7 +143,7 @@ public:
         qrmap["W03.04/3"] = map_info(3);
     }
 
-    void set_visited(string *qrtext, double * __restrict__ distance) {
+    void set_visited(string *qrtext, double *__restrict__ distance) {
         ostringstream ss;
         ss << *qrtext;
         ss << "/";
@@ -159,7 +159,7 @@ public:
         }
     }
 
-    int get_location(string *qrtext, double * __restrict__ distance) {
+    int get_location(string *qrtext, double *__restrict__ distance) {
         ostringstream key;
         key << *qrtext;
         key << "/";

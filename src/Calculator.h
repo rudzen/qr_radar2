@@ -78,7 +78,7 @@ public:
         return acos(a) * 180 / M_PI;
     }
 
-    static double angle_a(double * __restrict__ h, double * __restrict__ w) {
+    static double angle_a(double *__restrict__ h, double *__restrict__ w) {
         const double a = *w / *h;
         if (a > 1 || a < -1) return 0;
         // convert from radians to degrees :
@@ -92,7 +92,7 @@ public:
         return sin(A) * dist * modifier;
     }
 
-    static double dist_qr_projected(double * __restrict__ h, double * __restrict__ w, double * __restrict__ dist) {
+    static double dist_qr_projected(double *__restrict__ h, double *__restrict__ w, double *__restrict__ dist) {
         const double a = *w / *h;
         if (a > 1 || a < -1) return *dist;
         const double A = acos(a);
@@ -133,19 +133,19 @@ public:
     }
 
     // Function: Converts cm to pixels
-    static int cm_to_pix(double * __restrict__ cm) {
+    static int cm_to_pix(double *__restrict__ cm) {
         return (int) round(*cm / D_big);
     }
 
     // Function: Horizontal offset calculation in cm
     // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_horizontal(int * __restrict__ qr_x, int * __restrict__ img_x, double * __restrict__ cm_pix) {
+    static double offset_horizontal(int *__restrict__ qr_x, int *__restrict__ img_x, double *__restrict__ cm_pix) {
         return offset(*qr_x, *img_x, *cm_pix);
     }
 
     // Function: Vertical offset calculation in cm
     // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_vertical(int * __restrict__ qr_y, int * __restrict__ img_y, double * __restrict__ cm_pix) {
+    static double offset_vertical(int *__restrict__ qr_y, int *__restrict__ img_y, double *__restrict__ cm_pix) {
         return (*qr_y - *img_y) * *cm_pix;
     }
 
@@ -203,7 +203,7 @@ public:
     //Function : Get scanning image dimensions based on the current control setting
     //Description : Depending on the setting, the rectangular configuration is set
     //              to reflect the current location where the scanner is to look.
-    intrect static get_img_dim(int * __restrict__ control, int cols, int rows) {
+    intrect static get_img_dim(int *__restrict__ control, int cols, int rows) {
         intrect ret;
         switch (*control) {
             case QR_CONTROL_ALL:
@@ -260,7 +260,8 @@ public:
                 ret.left = cols >> 1;
                 ret.right = cols;
                 // yep, fallthrough...
-            default:break;
+            default:
+                break;
         }
         return ret;
     }
@@ -268,10 +269,10 @@ public:
     static void balance_white(cv::Mat mat) {
         double discard_ratio = 0.05;
         int hists[3][256];
-        memset(hists, 0, 3*256*sizeof(int));
+        memset(hists, 0, 3 * 256 * sizeof(int));
 
         for (int y = 0; y < mat.rows; ++y) {
-            uchar* ptr = mat.ptr<uchar>(y);
+            uchar *ptr = mat.ptr<uchar>(y);
             for (int x = 0; x < mat.cols; ++x) {
                 for (int j = 0; j < 3; ++j) {
                     hists[j][ptr[x * 3 + j]] += 1;
@@ -280,7 +281,7 @@ public:
         }
 
         // cumulative hist
-        int total = mat.cols*mat.rows;
+        int total = mat.cols * mat.rows;
         int vmin[3], vmax[3];
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 255; ++j) {
@@ -298,7 +299,7 @@ public:
 
 
         for (int y = 0; y < mat.rows; ++y) {
-            uchar* ptr = mat.ptr<uchar>(y);
+            uchar *ptr = mat.ptr<uchar>(y);
             for (int x = 0; x < mat.cols; ++x) {
                 for (int j = 0; j < 3; ++j) {
                     int val = ptr[x * 3 + j];

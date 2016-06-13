@@ -38,7 +38,8 @@
 
 using namespace std;
 
-template<class T> class v2 {
+template<class T>
+class v2 {
 public:
 
     v2(T x1, T y1, T x2, T y2) {
@@ -59,52 +60,52 @@ public:
     T x;
     T y;
 
-    v2 operator+(const v2& that) {
+    v2 operator+(const v2 &that) {
         return v2<T>(x + that.x, y + that.y);
     }
 
-    v2 operator+=(const v2& that) {
+    v2 operator+=(const v2 &that) {
         return v2<T>(x + that.x, y + that.y);
     }
 
-    v2 operator-(const v2& that) {
+    v2 operator-(const v2 &that) {
         return v2<T>(x - that.x, y - that.y);
     }
 
-    v2 operator-=(const v2& that) {
+    v2 operator-=(const v2 &that) {
         return v2<T>(x - that.x, y - that.y);
     }
 
     // Operator : Scalarproduct (dotproduct)
-    T operator*(const v2& that) {
+    T operator*(const v2 &that) {
         return (x * that.x) + (y * that.y);
     }
 
-    virtual v2 operator*(const T& k) {
+    virtual v2 operator*(const T &k) {
         return v2<T>(k * x, k * y);
     }
 
-    v2 operator*=(const v2& that) {
+    v2 operator*=(const v2 &that) {
         return v2<T>(x, y) * that;
     }
 
-    v2 operator*=(const T& k) {
+    v2 operator*=(const T &k) {
         return v2<T>(x, y) * k;
     }
 
-    int operator/(const v2& that) {
+    int operator/(const v2 &that) {
         return v2(x, y) * that == 0 ? 1 : 0;
     }
 
-    int operator<(const v2& that) {
+    int operator<(const v2 &that) {
         return len() < that.len();
     }
 
-    int operator>(const v2& that) {
+    int operator>(const v2 &that) {
         return len() > that.len();
     }
 
-    int operator==(const v2& that) {
+    int operator==(const v2 &that) {
         return x == that.x & y == that.y;
     }
 
@@ -112,19 +113,19 @@ public:
         return v2<T>(-x, -y);
     }
 
-    v2 project_onto(const v2& that) {
+    v2 project_onto(const v2 &that) {
         return this * (v2(x, y) * that / pow(len(), 2));
     }
 
-    T project_len(const v2& that) {
+    T project_len(const v2 &that) {
         return abs(v2(x, y) * that / len());
     }
 
-    T angle(const v2& that) {
+    T angle(const v2 &that) {
         return (v2(x, y) * that) / (len() * that.len());
     }
 
-    virtual T len()const {
+    virtual T len() const {
         return abs(sqrt((x * x) + (y * y)));
     }
 
@@ -132,81 +133,80 @@ public:
         return v2<T>(-y, x);
     }
 
-    T det(const v2& that) {
+    T det(const v2 &that) {
         return cross() * that;
     }
 
-    int parallel(const v2& that) {
+    int parallel(const v2 &that) {
         return det(that) == 0 ? 1 : 0;
     }
 
 };
 
 template<class T>
-ostream &operator << (ostream &stream, v2<T> v) {
+ostream &operator<<(ostream &stream, v2<T> v) {
     cout << '[' << v.x << ',' << v.y << ']';
     return stream;
 }
 
-template <class T>
+template<class T>
 class v3 : public v2<T> {
 public:
 
-    v3(T x1, T y1, T z1, T x2, T y2, T z2): v2<T>(x1, y1, x2, y2) {
+    v3(T x1, T y1, T z1, T x2, T y2, T z2) : v2<T>(x1, y1, x2, y2) {
         z = z2 - z1;
     }
 
-    v3(T x_, T y_, T z_): v2<T>(x_, y_) {
+    v3(T x_, T y_, T z_) : v2<T>(x_, y_) {
         z = z_;
     }
 
-    v3(): v2<T>(0, 0) {
+    v3() : v2<T>(0, 0) {
         z = 0;
     }
 
     T z;
 
-    v3 operator+(const v3& that) {
+    v3 operator+(const v3 &that) {
         return v3<T>(this->x + that.x, this->y + that.y, z + that.z);
     }
 
-    v3 operator-(const v3& that) {
+    v3 operator-(const v3 &that) {
         return v3<T>(this->x - that.x, this->y - that.y, z - that.z);
     }
 
     // Operator : Scalarproduct (dotproduct)
-    T operator*(const v3& that) {
+    T operator*(const v3 &that) {
         return (this->x * that.x) + (this->y * that.y) + (z * that.z);
     }
 
-    v3 operator*(T * __restrict__ k) {
+    v3 operator*(T *__restrict__ k) {
         return v3<T>(*k * this->x, *k * this->y, *k * z);
     }
 
-    T len()const {
+    T len() const {
         return abs(sqrt(this->x * this->x + this->y * this->y + z * z));
     }
 
-    v3 cross(const v3& that) {
+    v3 cross(const v3 &that) {
         return v3<T>(this->y * that.z - z * this->y, z * that.x - this->x * that.z, this->x * that.y - that.y - this->x);
     }
 
-    T parallelogram_area(const v3& that) {
+    T parallelogram_area(const v3 &that) {
         return abs(cross(that).len());
     }
 
-    T angle(const v3& that) {
+    T angle(const v3 &that) {
         return v3<T>(this->x, this->y, z) * that / (len() * that.len());
     }
 
 };
 
 template<class T>
-ostream &operator << (ostream &stream, v3<T> v) {
+ostream &operator<<(ostream &stream, v3<T> v) {
     cout << '[' << v.x << ',' << v.y << ',' << v.z << ']';
     return stream;
 }
-
 
 
 #endif //QR_RADAR2_VEC_H

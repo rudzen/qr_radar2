@@ -27,7 +27,7 @@
 
 #include "QrRadar.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ros::init(argc, argv, "qr_radar");
     QrRadar qr;
     ros::Rate loop_rate(10);

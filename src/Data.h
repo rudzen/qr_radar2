@@ -28,7 +28,8 @@
 #ifndef QR_RADAR2_DATA_H
 #define QR_RADAR2_DATA_H
 
-template <class T> class data {
+template<class T>
+class data {
 
 public:
     data() {
@@ -51,7 +52,7 @@ public:
             dist_z = smallest(Calculator::distance_z_floor(&width), Calculator::distance_z_floor(&height));
         }
         angle = Calculator::angle_a(&height, &width);
-        dist_z_projected =  Calculator::dist_qr_projected(&height, &width, &dist_z);
+        dist_z_projected = Calculator::dist_qr_projected(&height, &width, &dist_z);
         if (height_left >= height_right) {
             dist_z_projected = -dist_z_projected;
         }
@@ -71,7 +72,7 @@ public:
 };
 
 template<class T>
-ostream &operator << (ostream &stream, data<T> d) {
+ostream &operator<<(ostream &stream, data<T> d) {
     stream << d.dist_z << '\n' << d.angle << '\n' << d.dist_z_projected << '\n' << d.dist_z_cam_wall;
     return stream;
 }

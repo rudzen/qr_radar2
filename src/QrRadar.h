@@ -97,6 +97,9 @@ class QrRadar {
     /*!< Subscription object to enable / disable scanning of incomming images */
     ros::Subscriber sub_display_set_;
     /*!< Subscription object to enable / disable image display of scanned QR-code */
+    ros::Subscriber sub_kafkaf_;
+    /*!< Subscription object to make coffeeeeeeeeee!!!! */
+
 
     //mapqr qr_mapping;
 
@@ -155,6 +158,7 @@ public:
         sub_scan_topic_ = nh_.subscribe("qr/scan/topic", 1, &QrRadar::topic_set, this);
         sub_scan_wall_ = nh_.subscribe("qr/scan/flip", 1, &QrRadar::scan_flip, this);
         sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::scan_set, this);
+        sub_kafkaf_ = nh_.subscribe("qr/kaffe", 1, &QrRadar::kaffe, this);
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
@@ -415,7 +419,7 @@ public:
                     cv::imwrite(tmpss.str(), cv_ptr->image);
                     cout << "Saved image file as " << tmpss.str() << '\n';
                 }
-                catch (const std::runtime_error& ex) {
+                catch (const std::runtime_error &ex) {
                     cout << "Exception saving image : " << ex.what() << '\n';
                 }
 
@@ -558,8 +562,25 @@ public:
     }
 
     void display_flip(const std_msgs::Empty msg) {
-        display_output = ^true;
+        display_output = ^
+        true;
         cout << "image display configured to : o" << (display_output ? "n" : "ff") << endl;
+    }
+
+    void kaffe(const std_msgs::Empty msg) {
+        cout << "1 sec dude, skal lige brygge den sorte....\n";
+        sleep(1);
+        cout << "          / / / /\n";
+        cout << "   _______\\\\\\\\_______ \n";
+        cout << "  /                     \\\n";
+        cout << " \\                      / ___\n";
+        cout << "  |                      |/  \\\n";
+        cout << "  |    Kaf               |    /\n";
+        cout << "  |       Kaf            |   /\n";
+        cout << "  |          Kaffe!!     |  /\n";
+        cout << "  |                      |_/\n";
+        cout << "  |                      |\n";
+        cout << " \\_____________________/\n\n" << endl;
     }
 
     /*! \brief Dis-/enables QR scanning
