@@ -161,7 +161,10 @@ public:
 
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
-        system("clear");
+        int i = system("clear");
+        if (i != 0) {
+            cout << "Error while calling 'clear'\n";
+        }
         cout << "QR-Radar ROS-node v" << VERSION << '\n';
         cout << "Build at " << __DATE__ << " : " << __TIME__ << '\n';
         cout << "Initialized.." << endl;
@@ -185,7 +188,6 @@ public:
         sub_scan_topic_.shutdown();
         sub_scan_disable_.shutdown();
         pub_qr_.shutdown();
-        scanner_.~ImageScanner();
         stream_qr_.str(std::string());
         stream_qr_.clear();
     }

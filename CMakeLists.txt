@@ -26,8 +26,8 @@ project(qr_radar2)
 
 add_definitions(-std=c++11)
 add_definitions(-DUSE_RESTRICT)
-add_definitions(-O2)
-add_definitions(-Wall)
+add_definitions(-O3)
+#add_definitions(-Wall)
 
 ## Find catkin and any catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp std_msgs genmsg cv_bridge roslint image_transport)
