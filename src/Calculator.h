@@ -149,7 +149,6 @@ public:
         return (*qr_y - *img_y) * *cm_pix;
     }
 
-
     // Function : Calculates the REAL distance in Z axis from an object.
     // Description : The formula REQUIRES several things before it is possible.
     // It requires the real width of the object in cm (D), and by a fixed distance (fx. 100cm) (Z)

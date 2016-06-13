@@ -86,7 +86,7 @@ class QrRadar {
     /*!< Subscription object to enable display window */
     ros::Subscriber sub_display_disable_;
     /*!< Subscription object to disable the display window */
-    ros::Subscriber sub_scan_enable_;
+    ros::Subscriber sub_scan_topic_;
     /*!< Subscription object to enable scanning of incomming images */
     ros::Subscriber sub_scan_disable_;
     /*!< Subscription object to disable scanning of incomming images */
@@ -96,7 +96,6 @@ class QrRadar {
     /*!< Subscription object to enable / disable scanning of incomming images */
     ros::Subscriber sub_display_set_;
     /*!< Subscription object to enable / disable image display of scanned QR-code */
-
 
     //mapqr qr_mapping;
 
@@ -151,8 +150,7 @@ public:
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
         sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
         sub_display_disable_ = nh_.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
-        sub_scan_disable_ = nh_.subscribe("qr/scan/disable", 1, &QrRadar::scan_disable, this);
-        sub_scan_enable_ = nh_.subscribe("qr/scan/enable", 1, &QrRadar::scan_enable, this);
+        sub_scan_topic_ = nh_.subscribe("qr/scan/topic", 1, &QrRadar::set_topic, this);
         sub_scan_wall_ = nh_.subscribe("qr/scan/wall", 1, &QrRadar::scan_wall, this);
         sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_scan, this);
         sub_display_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_display, this);
@@ -184,7 +182,7 @@ public:
         sub_control_.shutdown();
         sub_display_enable_.shutdown();
         sub_display_disable_.shutdown();
-        sub_scan_enable_.shutdown();
+        sub_scan_topic_.shutdown();
         sub_scan_disable_.shutdown();
         pub_qr_.shutdown();
         scanner_.~ImageScanner();
@@ -569,7 +567,7 @@ public:
     *
     * Disables current image subscription and enables parsed topic.
     */
-    void scan_enable(const std_msgs::String::ConstPtr msg) {
+    void set_topic(const std_msgs::String::ConstPtr msg) {
         cout << "scan enabled.." << endl;
         scan_images = true;
         sub_image_.shutdown();
