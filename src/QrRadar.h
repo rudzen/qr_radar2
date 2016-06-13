@@ -133,8 +133,8 @@ public:
 
         // subscribe to input video feed and control / throttle topics etc
 
-        sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
-        //sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+        //sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
+        sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
 
         sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
         sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
@@ -319,6 +319,15 @@ public:
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y);
 
+            // 150cm distance
+            // bund kamera height = 81.7 cm
+            // bund kamera width = 141.5 cm
+
+            // 100cm distance
+            // height = 51.0
+            // width = 93.4
+
+
             cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 
             // info output
@@ -374,7 +383,7 @@ public:
 
                 ostringstream tmpss;
 
-                tmpss << qr.dist_z << ' ' << qr.dist_z_projected << ' ' << qr.angle;
+                tmpss << "d:" << qr.dist_z << " dp:" << qr.dist_z_projected << " a:" << qr.angle;
 
                 cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
 

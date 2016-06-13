@@ -35,11 +35,11 @@
 
 //static const float D = 21.05; // cm
 static const float D_big = 21.45; // cm
-static const float D_floor = 17.15; // cm
+static const float D_floor = 16.65; // cm
 static const int Z = 100; // cm
 
 static const int d_big = 114; // pixels
-static const float d_floor = d_big * 0.9f; // pixels
+static const float d_floor = d_big * D_big / D_floor; // pixels
 
 static const float focal_front = d_big * Z / D_big; // focal width for front camera
 static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
@@ -107,6 +107,12 @@ public:
         return cos(A) * dist;
     }
 
+    static double angle_floor(double distance, double width, double height) {
+        return atan((width / 2) / distance);
+
+    }
+
+
 
     // Function: Perpendicular Distance of a Point J from line formed by Points L and M; Equation of the line ax+by+c=0
     // Description: Given 3 points, the function derives the line quation of the first two points,
@@ -168,8 +174,8 @@ public:
         return D_big * focal_front / *pix_width;
     }
 
-    static double distance_z_floor(double *__restrict__ pix_height) {
-        return D_floor * focal_buttom / *pix_height;
+    static double distance_z_floor(double *__restrict__ pix_width) {
+        return D_floor * focal_buttom / *pix_width;
     }
 
     /*
