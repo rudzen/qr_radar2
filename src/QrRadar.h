@@ -31,6 +31,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
 #include "std_msgs/Float32.h"
+#include "std_msgs/Bool.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -91,6 +92,11 @@ class QrRadar {
     /*!< Subscription object to disable scanning of incomming images */
     ros::Subscriber sub_scan_wall_;
     /*!< Subscription for switching between wall and floor mode.*/
+    ros::Subscriber sub_scan_set_;
+    /*!< Subscription object to enable / disable scanning of incomming images */
+    ros::Subscriber sub_display_set_;
+    /*!< Subscription object to enable / disable image display of scanned QR-code */
+
 
     //mapqr qr_mapping;
 
@@ -148,6 +154,8 @@ public:
         sub_scan_disable_ = nh_.subscribe("qr/scan/disable", 1, &QrRadar::scan_disable, this);
         sub_scan_enable_ = nh_.subscribe("qr/scan/enable", 1, &QrRadar::scan_enable, this);
         sub_scan_wall_ = nh_.subscribe("qr/scan/wall", 1, &QrRadar::scan_wall, this);
+        sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_scan, this);
+        sub_display_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_display, this);
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
@@ -533,6 +541,28 @@ public:
         cout << "display disabled.." << endl;
         display_output = false;
         cv::destroyAllWindows();
+    }
+
+    void set_display(const std_msgs::Bool msg) {
+        cout << "set_display command recieved... ";
+        if (msg.data != display_output) {
+            display_output = msg.data;
+            cout << "new value : " << display_output;
+        } else {
+            cout << "value already set : " << display_output;
+        }
+        cout << endl;
+    }
+
+    void set_scan(const std_msgs::Bool msg) {
+        cout << "scan_set command recieved... ";
+        if (msg.data != scan_images) {
+            scan_images = msg.data;
+            cout << "new value : " << scan_images;
+        } else {
+            cout << "value already set : " << scan_images;
+        }
+        cout << endl;
     }
 
     /*! \brief Enables QR scanning
