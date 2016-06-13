@@ -13,9 +13,26 @@ Published the following information from detected QR-codes to the topic `qr` top
 * Projected distance to perpendicular distance from QR-Code based on camera position
 * Angle of QR-code scanned based on camera angle
 
+
+# INSTALL #
+
+```
+roscd
+cd catkin_ws/src
+git clone https://bitbucket.org/rudz/qr_radar2.git
+cd ..
+catkin_make
+```
+
+Then, input these lines into the droneScript.sh
+
+```
+gnome-terminal --tab --working-directory=/opt/ros/indigo/catkin_ws/ -e '/bin/bash -c "pwd; source devel/setup.bash; cd src/qr_radar2/; rosrun qr_radar2 qr_radar2;"'
+sleep 3
+```
 # FORMAT #
 
-The data being published is send in the following format seperated by ~
+The data being published is send in the following format seperated by \n
 
 * ROSTIME (uint_32)
 * QRTEXT (string)
