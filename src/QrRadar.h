@@ -188,6 +188,9 @@ public:
         sub_scan_topic_.shutdown();
         sub_scan_disable_.shutdown();
         pub_qr_.shutdown();
+        sub_scan_wall_.shutdown();
+        sub_scan_set_.shutdown();
+        sub_display_set_.shutdown();
         stream_qr_.str(std::string());
         stream_qr_.clear();
     }
