@@ -52,6 +52,8 @@ using namespace std;
 static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
 
+static const string VERSION = "0.2.1";
+
 /*! \brief Main QR-Scanning class.
  *
  *  The main controller class for handling the inputs and outputs
@@ -61,7 +63,7 @@ static const int MAX_VECTOR_SIZE = 4;
  */
 class QrRadar {
 
-    bool display_output = false;
+    bool display_output = true;
     /*!< Depending on the state, will display output window of scanned QR-code */
     bool scan_images = true;
     /*!< If set to false, any incomming images from the image topic will be ignored */
@@ -95,8 +97,6 @@ class QrRadar {
     /*!< The scanner object which scans for QR-code(s) in a given image */
     ros::Publisher pub_qr_;
     /*!< Publisher for the result(s) gathered from the QR-code */
-    ros::Publisher pub_pp_;
-    /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
     ros::Publisher pub_pp_show_;
     /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
 
@@ -145,13 +145,14 @@ public:
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
-        pub_pp_ = nh_.advertise<std_msgs::String>("prettyprint", 1);
-        pub_pp_show_ = nh_.advertise<std_msgs::Empty>("prettyprint/show", 1);
+        pub_pp_show_ = nh_.advertise<std_msgs::String>("prettyprint/now", 1);
 
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
-
-        cout << "QR-Radar ROS-node initialized..." << endl;
+        system("clear");
+        cout << "QR-Radar ROS-node v" << VERSION << '\n';
+        cout << "Build at " << __DATE__ << " : " << __TIME__ << '\n';
+        cout << "Initialized.." << endl;
 
         //graph.generate_map();
         //cout << g << endl;
@@ -332,28 +333,24 @@ public:
             cout << "angular a   (deg)     : " << qr.angle << '\n';
             cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
             cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
+            cout << endl;
 
             //qr_mapping.set_visited(&qr_string, &qr.dist_z);
 
             if (pub_qr_.getNumSubscribers() > 0) {
                 stream_qr_.str(string());
                 stream_qr_.clear();
-                stream_qr_ << setfill('0') << setw(10) << ros_time;
-                stream_qr_ << '~';
-                stream_qr_ << qr_string;
-                stream_qr_ << '~';
-                stream_qr_ << offsets_cm.x;
-                stream_qr_ << '~';
-                stream_qr_ << offsets_cm.y;
-                stream_qr_ << '~';
+                stream_qr_ << ros_time << '\n';
+                stream_qr_ << qr_string << '\n';
+                stream_qr_ << offsets_cm.x << '\n';
+                stream_qr_ << offsets_cm.y << '\n';
                 stream_qr_ << qr;
 
 
                 /* publish the qr code information */
                 msg_qr_.data = stream_qr_.str();
                 pub_qr_.publish(msg_qr_);
-                pub_pp_.publish(msg_qr_);
-                pub_pp_show_.publish(msg_pp_show);
+                pub_pp_show_.publish(msg_qr_);
             }
 
 
@@ -377,7 +374,7 @@ public:
 
                 ostringstream tmpss;
 
-                tmpss << qr.dist_z << ' ' << qr.dist_z_projected;
+                tmpss << qr.dist_z << ' ' << qr.dist_z_projected << ' ' << qr.angle;
 
                 cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
 

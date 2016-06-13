@@ -68,7 +68,7 @@ public:
 
 template<class T>
 ostream &operator << (ostream &stream, data<T> d) {
-    stream << d.dist_z << '~' << d.angle << '~' << d.dist_z_projected << '~' << d.dist_z_cam_wall;
+    stream << d.dist_z << '\n' << d.angle << '\n' << d.dist_z_projected << '\n' << d.dist_z_cam_wall;
     return stream;
 }
 
