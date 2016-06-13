@@ -31,6 +31,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
 #include "std_msgs/Float32.h"
+#include "std_msgs/Byte.h"
 #include "std_msgs/Bool.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
@@ -146,14 +147,14 @@ public:
         //sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
         sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
 
-        sub_throttle_ = nh_.subscribe("qr/throttle", 1, &QrRadar::set_throttle, this);
-        sub_control_ = nh_.subscribe("qr/control", 1, &QrRadar::set_control, this);
+        sub_throttle_ = nh_.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
+        sub_control_ = nh_.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
         sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
         sub_display_disable_ = nh_.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
-        sub_scan_topic_ = nh_.subscribe("qr/scan/topic", 1, &QrRadar::set_topic, this);
-        sub_scan_wall_ = nh_.subscribe("qr/scan/wall", 1, &QrRadar::scan_wall, this);
-        sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_scan, this);
-        sub_display_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::set_display, this);
+        sub_display_set_ = nh_.subscribe("qr/display/set", 1, &QrRadar::display_set, this);
+        sub_scan_topic_ = nh_.subscribe("qr/scan/topic", 1, &QrRadar::topic_set, this);
+        sub_scan_wall_ = nh_.subscribe("qr/scan/flip", 1, &QrRadar::scan_flip, this);
+        sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::scan_set, this);
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
@@ -173,10 +174,6 @@ public:
         //cout << g << endl;
     }
 
-    /*! \brief Brief description.
-         Brief description continued.
- *  Detailed description starts here.
- */
     ~QrRadar() {
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
@@ -393,7 +390,6 @@ public:
                 cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(0, 0, 0));
                 cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(0, 0, 0));
 
-                //cv::rectangle(cv_ptr->image, cvRect(qr_rect.left, qr_rect.top, qr_rect.right - qr_rect.left, qr_rect.bottom - qr_rect.top), CV_RGB(0, 0, 0), 1, 8, 0);
                 cv::circle(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), 3, CV_RGB(255, 255, 255));
                 cv::circle(cv_ptr->image, cvPoint(pd_[1].x, pd_[1].y), 3, CV_RGB(255, 255, 255));
                 cv::circle(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), 3, CV_RGB(255, 255, 255));
@@ -482,7 +478,7 @@ public:
     * Will try to set the incomming throttle value, it guards against unwanted information and will
     * not allow invalid values.
     */
-    void set_throttle(const std_msgs::Float32 msg) {
+    void throttle_set(const std_msgs::Float32 msg) {
         cout << "throttle command recieved.. ";
         if (msg.data > 0.0) {
             if (msg.data == throttle_) {
@@ -502,10 +498,13 @@ public:
     * Will try to set the incomming control value, it guards against unwanted information and will
     * not allow invalid values. It will always respond with a message indicating success or fauilure.
     */
-    void set_control(const std_msgs::String::ConstPtr msg) {
-        cout << "Got control parameter : " << msg->data.c_str() << endl;
-        const int control_msg = stoi(msg->data.c_str());
-        switch (control_msg) {
+    void control_set(const std_msgs::Byte msg) {
+        cout << "control command recieved.. ";
+        if (msg.data == control) {
+            cout << "but was un-altered : " << throttle_ << endl;
+            return;
+        }
+        switch (msg.data) {
             case QR_CONTROL_NONE:
             case QR_CONTROL_ALL:
             case QR_CONTROL_LARGEST:
@@ -518,8 +517,9 @@ public:
             case QR_CONTROL_LEFT:
             case QR_CONTROL_UPPER:
             case QR_CONTROL_LOWER:
-                control = control_msg;
+                control = msg.data;
                 msg_control_.data = QR_CONTROL_MSG_OK;
+                break;
             default:
                 msg_control_.data = QR_CONTROL_MSG_FAIL;
                 break;
@@ -546,8 +546,8 @@ public:
         cv::destroyAllWindows();
     }
 
-    void set_display(const std_msgs::Bool msg) {
-        cout << "set_display command recieved... ";
+    void display_set(const std_msgs::Bool msg) {
+        cout << "display_set command recieved... ";
         if (msg.data != display_output) {
             display_output = msg.data;
             cout << "new value : " << display_output;
@@ -557,7 +557,16 @@ public:
         cout << endl;
     }
 
-    void set_scan(const std_msgs::Bool msg) {
+    void display_flip(const std_msgs::Empty msg) {
+        display_output = ^true;
+        cout << "image display configured to : o" << (display_output ? "n" : "ff") << endl;
+    }
+
+    /*! \brief Dis-/enables QR scanning
+    *
+    * Disables or enables current image subscription.
+    */
+    void scan_set(const std_msgs::Bool msg) {
         cout << "scan_set command recieved... ";
         if (msg.data != scan_images) {
             scan_images = msg.data;
@@ -568,28 +577,18 @@ public:
         cout << endl;
     }
 
-    /*! \brief Enables QR scanning
+    /*! \brief Set image topic
     *
     * Disables current image subscription and enables parsed topic.
     */
-    void set_topic(const std_msgs::String::ConstPtr msg) {
+    void topic_set(const std_msgs::String::ConstPtr msg) {
         cout << "scan enabled.." << endl;
         scan_images = true;
         sub_image_.shutdown();
         sub_image_ = it_.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
     }
 
-    /*! \brief Disables QR scanning
-    *
-    * Disables current image subscription.
-    */
-    void scan_disable(const std_msgs::Empty empty) {
-        cout << "scan disabled.." << endl;
-        scan_images = false;
-        sub_image_.shutdown();
-    }
-
-    void scan_wall(const std_msgs::Empty empty) {
+    void scan_flip(const std_msgs::Empty empty) {
         wall_mode ^= true;
         cout << "new scan mode selected : " << (wall_mode ? "wall" : "floor") << endl;
     }
