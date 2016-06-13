@@ -42,10 +42,14 @@ public:
         dist_z = smallest(Calculator::distance_z_wall(&width), Calculator::distance_z_wall(&height));
     }
 
-    data(T width_top, T width_bottom, T height_left, T height_right) : width_top(width_top), width_bottom(width_bottom), height_left(height_left), height_right(height_right) {
+    data(T width_top, T width_bottom, T height_left, T height_right, bool *wall) : width_top(width_top), width_bottom(width_bottom), height_left(height_left), height_right(height_right) {
         width = Calculator::avg(&width_top, &width_bottom);
         height = Calculator::avg(&height_left, &height_right);
-        dist_z = smallest(Calculator::distance_z_wall(&width), Calculator::distance_z_wall(&height));
+        if (*wall) {
+            dist_z = smallest(Calculator::distance_z_wall(&width), Calculator::distance_z_wall(&height));
+        } else {
+            dist_z = smallest(Calculator::distance_z_floor(&width), Calculator::distance_z_floor(&height));
+        }
         angle = Calculator::angle_a(&height, &width);
         dist_z_projected =  Calculator::dist_qr_projected(&height, &width, &dist_z);
         if (height_left >= height_right) {

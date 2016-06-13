@@ -30,6 +30,7 @@
 
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
+#include "std_msgs/Float32.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -67,6 +68,8 @@ class QrRadar {
     /*!< Depending on the state, will display output window of scanned QR-code */
     bool scan_images = true;
     /*!< If set to false, any incomming images from the image topic will be ignored */
+    bool wall_mode = true;
+    /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
 
     ros::NodeHandle nh_;
     /*!< The nodehandler for the topics */
@@ -86,6 +89,8 @@ class QrRadar {
     /*!< Subscription object to enable scanning of incomming images */
     ros::Subscriber sub_scan_disable_;
     /*!< Subscription object to disable scanning of incomming images */
+    ros::Subscriber sub_scan_wall_;
+    /*!< Subscription for switching between wall and floor mode.*/
 
     //mapqr qr_mapping;
 
@@ -100,7 +105,7 @@ class QrRadar {
     ros::Publisher pub_pp_show_;
     /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
 
-    double throttle_; // to slow down the aggresiveness of publishing!!
+    float throttle_; // to slow down the aggresiveness of publishing!!
 
     std_msgs::String msg_qr_;
     /*!< String message object for publishing the result */
@@ -142,6 +147,7 @@ public:
         sub_display_disable_ = nh_.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
         sub_scan_disable_ = nh_.subscribe("qr/scan/disable", 1, &QrRadar::scan_disable, this);
         sub_scan_enable_ = nh_.subscribe("qr/scan/enable", 1, &QrRadar::scan_enable, this);
+        sub_scan_wall_ = nh_.subscribe("qr/scan/wall", 1, &QrRadar::scan_wall, this);
 
         // set result advertisement topic
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
@@ -302,6 +308,7 @@ public:
             /* set the image center (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
+
             /* check if the qr is in a valid position */
             // currently not used...
 
@@ -317,7 +324,7 @@ public:
             v2<double> offsets_cm(Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real), Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real));
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
-            ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y);
+            ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y, &wall_mode);
 
             // 150cm distance
             // bund kamera height = 81.7 cm
@@ -464,19 +471,19 @@ public:
     * Will try to set the incomming throttle value, it guards against unwanted information and will
     * not allow invalid values.
     */
-    void set_throttle(const std_msgs::String::ConstPtr msg) {
-        cout << "Got throttle information....";
-        try {
-            double temp = stod(msg->data.c_str());
-            if (temp > 0.0) {
-                cout << " changed " << throttle_ << " -> " << temp << endl;
-                throttle_ = temp;
+    void set_throttle(const std_msgs::Float32 msg) {
+        cout << "throttle command recieved.. ";
+        if (msg.data > 0.0) {
+            if (msg.data == throttle_) {
+                cout << "but was un-altered : " << throttle_;
+            } else {
+                throttle_ = msg.data;
+                cout << " new value is : " << throttle_;
             }
-        } catch (const invalid_argument &ia) {
-            cout << " but it was invalid : " << ia.what() << endl;
-        } catch (const std::out_of_range &uor) {
-            cout << " but it was out of range : " << uor.what() << endl;
+        } else {
+            cout << "invalid value : " << throttle_;
         }
+        cout << endl;
     }
 
     /*! \brief Set control callback function through topic
@@ -549,7 +556,10 @@ public:
         sub_image_.shutdown();
     }
 
-
+    void scan_wall(const std_msgs::Empty empty) {
+        wall_mode ^= true;
+        cout << "new scan mode selected : " << (wall_mode ? "wall" : "floor") << endl;
+    }
 };
 
 #endif //QR_RADAR2_QRRADAR_H
