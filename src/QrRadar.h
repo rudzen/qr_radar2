@@ -562,7 +562,7 @@ public:
     }
 
     void display_flip(const std_msgs::Empty msg) {
-        display_output = ^
+        display_output ^= true;
         true;
         cout << "image display configured to : o" << (display_output ? "n" : "ff") << endl;
     }
