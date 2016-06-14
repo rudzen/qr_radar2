@@ -171,7 +171,7 @@ public:
             cout << "Error while calling 'clear'\n";
         }
         cout << "QR-Radar ROS-node v" << VERSION << '\n';
-        cout << "Build at " << __DATE__ << " : " << __TIME__ << '\n';
+        cout << "Build at " << __DATE__ << " / " << __TIME__ << '\n';
         cout << "Initialized.." << endl;
 
         //graph.generate_map();
@@ -295,6 +295,7 @@ public:
 
             // ****** QR META STUFF *********
             pd_.clear();
+
             pd_.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
             pd_.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
             pd_.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
@@ -340,15 +341,6 @@ public:
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y, &wall_mode);
-
-            // 150cm distance
-            // bund kamera height = 81.7 cm
-            // bund kamera width = 141.5 cm
-
-            // 100cm distance
-            // height = 51.0
-            // width = 93.4
-
 
             cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 

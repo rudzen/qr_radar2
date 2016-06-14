@@ -44,7 +44,6 @@ static const float d_floor = d_big * D_big / D_floor; // pixels
 static const float focal_front = d_big * Z / D_big; // focal width for front camera
 static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
-#define offset(a, b, c) (a - b) / c;
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
 
@@ -109,10 +108,7 @@ public:
 
     static double angle_floor(double distance, double width, double height) {
         return atan((width / 2) / distance);
-
     }
-
-
 
     // Function: Perpendicular Distance of a Point J from line formed by Points L and M; Equation of the line ax+by+c=0
     // Description: Given 3 points, the function derives the line quation of the first two points,
@@ -140,12 +136,14 @@ public:
     // Function: Horizontal offset calculation in cm
     // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
     static double offset_horizontal(int *__restrict__ qr_x, int *__restrict__ img_x, double *__restrict__ cm_pix) {
-        return offset(*qr_x, *img_x, *cm_pix);
+        // > 0 = left, < 0 right
+        return (*qr_x - *img_x) * *cm_pix;
     }
 
     // Function: Vertical offset calculation in cm
     // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
     static double offset_vertical(int *__restrict__ qr_y, int *__restrict__ img_y, double *__restrict__ cm_pix) {
+        // > 0 up, < 0 down
         return (*qr_y - *img_y) * *cm_pix;
     }
 
