@@ -208,9 +208,12 @@ public:
             return;
         }
 
+        /*
+         * temp. disabled..
         if (pub_qr_.getNumSubscribers() == 0) {
             return;
         }
+        */
 
         //cout << "Timing everything with cv_bridge share & DBG =" << DBG << std::endl;
 
