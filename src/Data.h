@@ -53,7 +53,7 @@ public:
         }
         angle = Calculator::angle_a(&height, &width);
         dist_z_projected = Calculator::dist_qr_projected(&height, &width, &dist_z);
-        if (height_left >= height_right) {
+        if (height_right >= height_left) {
             dist_z_projected = -dist_z_projected;
         }
         dist_z_cam_wall = Calculator::dist_wall(height, width, dist_z);

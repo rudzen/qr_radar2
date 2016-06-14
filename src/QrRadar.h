@@ -333,11 +333,7 @@ public:
             //    continue;
             //}
 
-            int distance_c2c = Calculator::pixel_distance(qr_c, img_c);
-            double cm_real = Calculator::pix_to_cm(&distance_c2c);
-
-            // set the offset in cm from qr center to image center in for both x & y
-            v2<double> offsets_cm(Calculator::offset_horizontal(&qr_c.x, &img_c.x, &cm_real), Calculator::offset_vertical(&qr_c.y, &img_c.y, &cm_real));
+            v2<double> offsets((qr_c.x - img_c.x) * Calculator::pix_to_cm(((pd_[3].x - pd_[0].x) + (pd_[2].x - pd_[1].x)) >> 1), (qr_c.y - img_c.y) * Calculator::pix_to_cm(((pd_[1].y - pd_[0].y) + (pd_[2].y - pd_[3].y)) >> 1));
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y, &wall_mode);
@@ -348,11 +344,11 @@ public:
             cout << "Image rect            : " << img_dim << '\n';
             cout << "QR rect               : " << qr_rect << '\n';
             cout << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
-            cout << "c2c          (pix)    : " << distance_c2c << '\n';
+            //cout << "c2c          (pix)    : " << distance_c2c << '\n';
             cout << "smallest dist (cm)    : " << qr.dist_z << '\n';
-            cout << "cm offset c2c(cm)     : " << cm_real << '\n';
-            cout << "off.hori     (cm)     : " << offsets_cm.x << '\n';
-            cout << "off.vert     (cm)     : " << offsets_cm.y << '\n';
+            //cout << "cm offset c2c(cm)     : " << cm_real << '\n';
+            cout << "off.hori     (cm)     : " << offsets.x << '\n';
+            cout << "off.vert     (cm)     : " << offsets.y << '\n';
             cout << "angular a   (deg)     : " << qr.angle << '\n';
             cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
             cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
@@ -365,8 +361,8 @@ public:
                 stream_qr_.clear();
                 stream_qr_ << ros_time << '\n';
                 stream_qr_ << qr_string << '\n';
-                stream_qr_ << offsets_cm.x << '\n';
-                stream_qr_ << offsets_cm.y << '\n';
+                stream_qr_ << offsets.x << '\n';
+                stream_qr_ << offsets.y << '\n';
                 stream_qr_ << qr;
 
 

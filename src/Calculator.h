@@ -39,7 +39,7 @@ static const float D_floor = 16.65; // cm
 static const int Z = 100; // cm
 
 static const int d_big = 114; // pixels
-static const float d_floor = d_big * D_big / D_floor; // pixels
+static const float d_floor = d_big * D_floor / D_floor; // pixels
 
 static const float focal_front = d_big * Z / D_big; // focal width for front camera
 static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
@@ -56,14 +56,13 @@ public:
 
     // Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
-    static double distance(CvPoint2D32f P, CvPoint2D32f Q) {
-        //sqrt(pow(abs(P.x - Q.x), 2) + pow(abs(P.y - Q.y), 2));
-        return sqrt(abs((int) ((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
-    }
-
     static int pixel_distance(const v2<int> &P, const v2<int> &Q) {
         //sqrt(pow(abs(P.x - Q.x), 2) + pow(abs(P.y - Q.y), 2));
         return sqrt(abs(((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
+    }
+
+    static int pytha(int *__restrict__ a, int * __restrict__ b) {
+        return (int) sqrt(*a * *a + *b * *b);
     }
 
     static double avg(double *__restrict__ first, double *__restrict__ second) {
@@ -124,8 +123,12 @@ public:
      */
 
     // Function : Converts pixels to cm
-    static double pix_to_cm(int *__restrict__ distance) {
-        return D_big / *distance;
+    static double pix_to_cm(int *__restrict__ width) {
+        return D_big / *width;
+    }
+
+    static double pix_to_cm(int width) {
+        return D_big / width;
     }
 
     // Function: Converts cm to pixels
