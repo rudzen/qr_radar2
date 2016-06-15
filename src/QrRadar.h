@@ -237,6 +237,8 @@ public:
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
+        cout << "Time for scanning QR (ns) = " << ((ros::Time::now().nsec - ros_time)) << '\n';
+
         /* scan the image for QR codes */
         const int scans = imageScanner.scan(zbar_image);
 
@@ -307,7 +309,6 @@ public:
             /* set the image center (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
 
-
             /* check if the qr is in a valid position */
             // currently not used...
 
@@ -321,10 +322,9 @@ public:
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, &isWallMode);
 
-            cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 
             // publish collision warning right away!
-            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(1) == 'W') {
+            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(0) == 'W') {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << qr.dist_z_cam_wall;
@@ -333,6 +333,7 @@ public:
             }
 
             // info output
+            cout << "Starting letter       : " << qr_string.at(0) << '\n';
             cout << "Image rect            : " << img_dim << '\n';
             cout << "QR rect               : " << qr_rect << '\n';
             cout << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
