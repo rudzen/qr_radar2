@@ -49,6 +49,8 @@
 #include "Rectangle.h"
 #include "Data.h"
 #include "Map.h"
+#include "MessageData.h"
+#include "PrettyPrint.h"
 
 using namespace std;
 
@@ -132,6 +134,17 @@ class QrRadar {
 
 public:
     QrRadar() : it_(nh_) {
+        // set window (debug) for scanning
+        cv::namedWindow(OPENCV_WINDOW);
+        int i = system("clear");
+        if (i != 0) {
+            cout << "Error while calling 'clear'\n";
+        }
+        PrettyPrint pp(VERSION);
+        pp.show_menu();
+        //cout << "QR-Radar ROS-node v" << VERSION << '\n';
+        //cout << "Build at " << __DATE__ << " / " << __TIME__ << '\n';
+        
         // default control option
         control = QR_CONTROL_ALL;
 
@@ -164,14 +177,6 @@ public:
         pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
         pub_pp_show_ = nh_.advertise<std_msgs::String>("prettyprint/now", 1);
 
-        // set window (debug) for scanning
-        cv::namedWindow(OPENCV_WINDOW);
-        int i = system("clear");
-        if (i != 0) {
-            cout << "Error while calling 'clear'\n";
-        }
-        cout << "QR-Radar ROS-node v" << VERSION << '\n';
-        cout << "Build at " << __DATE__ << " / " << __TIME__ << '\n';
         cout << "Initialized.." << endl;
 
         //graph.generate_map();
@@ -365,6 +370,10 @@ public:
                 stream_qr_ << offsets.y << '\n';
                 stream_qr_ << qr;
 
+
+                // testing output from message data
+                message_data md(stream_qr_.str());
+                cout << "TEST MD!!! : " << md << endl;
 
                 /* publish the qr code information */
                 msg_qr_.data = stream_qr_.str();
