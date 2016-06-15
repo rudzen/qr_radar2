@@ -137,7 +137,7 @@ public:
         // subscribe to input video feed and control / throttle topics etc
 
         //subImage = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
-        subImage = imageTransport.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+        subImage = imageTransport.subscribe("/ardrone/front/image_raw", 1, &QrRadar::imageCb, this);
 
         subThrottle = nodeHandle.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
 //        subControl = nodeHandle.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
