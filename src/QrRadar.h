@@ -324,7 +324,7 @@ public:
             cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 
             // publish collision warning right away!
-            if (pubCollision.getNumSubscribers() > 0) {
+            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(1) == 'W') {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << qr.dist_z_cam_wall;
