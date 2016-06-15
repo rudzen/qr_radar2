@@ -30,8 +30,8 @@
 
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
-#include "std_msgs/Float32.h"
 #include "std_msgs/Byte.h"
+#include "std_msgs/Float32.h"
 #include "std_msgs/Bool.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
@@ -48,7 +48,6 @@
 #include "Calculator.h"
 #include "Rectangle.h"
 #include "Data.h"
-#include "Map.h"
 #include "MessageData.h"
 #include "PrettyPrint.h"
 
@@ -73,13 +72,13 @@ private:
 
     bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
-    bool isWallMode = true;                                             /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
+    bool isWallMode = true;                                         /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
 
     ros::NodeHandle nodeHandle;                                     /*!< The nodehandler for the topics */
     image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
     image_transport::Subscriber subImage;                           /*!< The subscription object for the image topic */
     ros::Subscriber subThrottle;                                    /*!< Subscription object for setting the throttle */
-    ros::Subscriber subControl;                                     /*!< Subscription object for setting the control settings */
+    //ros::Subscriber subControl;                                     /*!< Subscription object for setting the control settings */
     ros::Subscriber subDisplayEnable;                               /*!< Subscription object to enable display window */
     ros::Subscriber subDisplayDisable;                              /*!< Subscription object to disable the display window */
     ros::Subscriber subDisplaySet;                                  /*!< Subscription object to enable / disable image display of scanned QR-code */
@@ -102,6 +101,7 @@ private:
 
     std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
     std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
+    std_msgs::String msg_collision;
 
     ostringstream streamQR;                                         /*!< Output stringstream for gathering the information which is to be published */
     vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
@@ -120,9 +120,7 @@ public:
         }
         PrettyPrint pp(VERSION);
         pp.show_menu();
-        //cout << "QR-Radar ROS-node v" << VERSION << '\n';
-        //cout << "Build at " << __DATE__ << " / " << __TIME__ << '\n';
-        
+
         // default control option
         control = QR_CONTROL_ALL;
 
@@ -142,7 +140,7 @@ public:
         subImage = imageTransport.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
 
         subThrottle = nodeHandle.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
-        subControl = nodeHandle.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
+//        subControl = nodeHandle.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
         subDisplayEnable = nodeHandle.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
         subDisplayDisable = nodeHandle.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
         subDisplaySet = nodeHandle.subscribe("qr/display/set", 1, &QrRadar::display_set, this);
@@ -153,7 +151,7 @@ public:
 
         // set result advertisement topic
         pubQR = nodeHandle.advertise<std_msgs::String>("qr", 1);
-        pubCollision = nodeHandle.advertise<std_msgs::Float32>("collision/wall", 1);
+        pubCollision = nodeHandle.advertise<std_msgs::String>("collision/wall", 1);
 
         cout << "Initialized.." << endl;
 
@@ -168,7 +166,7 @@ public:
         pubCollision.shutdown();
         subImage.shutdown();
         subThrottle.shutdown();
-        subControl.shutdown();
+        //subControl.shutdown();
         subDisplayEnable.shutdown();
         subDisplayDisable.shutdown();
         subScanTopic.shutdown();
@@ -327,7 +325,11 @@ public:
 
             // publish collision warning right away!
             if (pubCollision.getNumSubscribers() > 0) {
-                pubCollision.publish(&qr.dist_z_cam_wall);
+                streamQR.str(string());
+                streamQR.clear();
+                streamQR << qr.dist_z_cam_wall;
+                msg_collision.data = streamQR.str();
+                pubCollision.publish(msg_collision);
             }
 
             // info output
@@ -469,15 +471,14 @@ public:
         cout << "throttle command recieved.. ";
         if (msg.data > 0.0) {
             if (msg.data == throttle_) {
-                cout << "but was un-altered : " << throttle_;
+                cout << "but was un-altered : " << throttle_ << endl;
             } else {
                 throttle_ = msg.data;
-                cout << " new value is : " << throttle_;
+                cout << " new value is : " << throttle_ << endl;
             }
         } else {
-            cout << "invalid value : " << throttle_;
+            cout << "invalid value : " << throttle_ << endl;
         }
-        cout << endl;
     }
 
     /*! \brief Set control callback function through topic
@@ -485,6 +486,7 @@ public:
     * Will try to set the incomming control value, it guards against unwanted information and will
     * not allow invalid values. It will always respond with a message indicating success or fauilure.
     */
+    /*
     void control_set(const std_msgs::Byte msg) {
         cout << "control command recieved.. ";
         if (msg.data == control) {
@@ -513,6 +515,7 @@ public:
         }
         pubQR.publish(msg_control_);
     }
+     */
 
     /*! \brief Enables display output
     *
@@ -537,11 +540,10 @@ public:
         cout << "display_set command recieved... ";
         if (msg.data != shouldDisplayDebugWindow) {
             shouldDisplayDebugWindow = msg.data;
-            cout << "new value : " << shouldDisplayDebugWindow;
+            cout << "new value : " << shouldDisplayDebugWindow << endl;
         } else {
-            cout << "value already set : " << shouldDisplayDebugWindow;
+            cout << "value already set : " << shouldDisplayDebugWindow << endl;
         }
-        cout << endl;
     }
 
     void display_flip(const std_msgs::Empty msg) {
@@ -574,11 +576,10 @@ public:
         cout << "scan_set command recieved... ";
         if (msg.data != isScanEnabled) {
             isScanEnabled = msg.data;
-            cout << "new value : " << isScanEnabled;
+            cout << "new value : " << isScanEnabled << endl;
         } else {
-            cout << "value already set : " << isScanEnabled;
+            cout << "value already set : " << isScanEnabled << endl;
         }
-        cout << endl;
     }
 
     /*! \brief Set image topic
