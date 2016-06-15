@@ -96,6 +96,7 @@ private:
     zbar::ImageScanner imageScanner;                                /*!< The scanner object which scans for QR-code(s) in a given image */
 
     ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
+    ros::Publisher pubCollision;                                    /*!< Publisher for the result(s) gathered from the QR-code */
 
     float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
 
@@ -152,6 +153,7 @@ public:
 
         // set result advertisement topic
         pubQR = nodeHandle.advertise<std_msgs::String>("qr", 1);
+        pubCollision = nodeHandle.advertise<std_msgs::Float32>("collision/wall", 1);
 
         cout << "Initialized.." << endl;
 
@@ -162,6 +164,8 @@ public:
     ~QrRadar() {
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
+        pubQR.shutdown();
+        pubCollision.shutdown();
         subImage.shutdown();
         subThrottle.shutdown();
         subControl.shutdown();
@@ -169,7 +173,6 @@ public:
         subDisplayDisable.shutdown();
         subScanTopic.shutdown();
         subScanDisable.shutdown();
-        pubQR.shutdown();
         subScanWall.shutdown();
         subScanSet.shutdown();
         subDisplaySet.shutdown();
@@ -322,6 +325,11 @@ public:
 
             cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 
+            // publish collision warning right away!
+            if (pubCollision.getNumSubscribers() > 0) {
+                pubCollision.publish(&qr.dist_z_cam_wall);
+            }
+
             // info output
             cout << "Image rect            : " << img_dim << '\n';
             cout << "QR rect               : " << qr_rect << '\n';
@@ -356,7 +364,6 @@ public:
                 msg_qr_.data = streamQR.str();
                 pubQR.publish(msg_qr_);
             }
-
 
             if (shouldDisplayDebugWindow) {
 
