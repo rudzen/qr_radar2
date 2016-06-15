@@ -33,6 +33,7 @@
 #include "std_msgs/Byte.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/Bool.h"
+#include "std_msgs/Int8.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -48,7 +49,6 @@
 #include "Calculator.h"
 #include "Rectangle.h"
 #include "Data.h"
-#include "MessageData.h"
 #include "PrettyPrint.h"
 
 using namespace std;
@@ -57,7 +57,7 @@ static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
 static const char pubSeperator = ' ';
 
-static const string VERSION = "0.2.1";
+static const string VERSION = "0.3.0";
 
 /*! \brief Main QR-Scanning class.
  *
@@ -70,10 +70,18 @@ class QrRadar {
 
 private:
 
+    //const string topicFrontCamera = "/usb_cam/image_raw";
+    const string topicFrontCamera = "/ardrone/front/image_raw";
+    const string topicButtomCamera = "/ardrone/buttom/image_raw";
+
     bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
 
-    ros::NodeHandle nodeHandle;                                     /*!< The nodehandler for the topics */
+    ros::NodeHandle nhQR = ros::NodeHandle("/qr");                  /*!< The nodehandler for the topics */
+    ros::NodeHandle nhScan;
+    ros::NodeHandle nhThrottle;
+    ros::NodeHandle nhDisplay;
+    ros::NodeHandle nhCollision;
     image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
     image_transport::Subscriber subImage;                           /*!< The subscription object for the image topic */
     ros::Subscriber subThrottle;                                    /*!< Subscription object for setting the throttle */
@@ -94,25 +102,35 @@ private:
     zbar::ImageScanner imageScanner;                                /*!< The scanner object which scans for QR-code(s) in a given image */
 
     ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
-    ros::Publisher pubCollision;                                    /*!< Publisher for the result(s) gathered from the QR-code */
+    ros::Publisher pubCollision;                                    /*!< Publisher for potential collision with wall detection by QR-code distance */
+    ros::Publisher pubScanCount;                                    /*!< Publisher for no detection of QR-codes in scanned image */
 
     float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
 
     std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
     std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
     std_msgs::String msg_collision;
+    std_msgs::String msg_scan_count;
 
     ostringstream streamQR;                                         /*!< Output stringstream for gathering the information which is to be published */
     vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
 
     int control;                                                    /*!< Control integer */
 
+    cv_bridge::CvImagePtr cv_ptr;
+
     Calculator c;
 
 public:
 
+    QrRadar() :
+            imageTransport(nhQR) {
 
-    QrRadar() : imageTransport(nodeHandle) {
+        /* configure nodehandle sub namespaces */
+        nhScan = ros::NodeHandle(nhQR, "scan");
+        nhThrottle = ros::NodeHandle(nhQR, "throttle");
+        nhDisplay = ros::NodeHandle(nhQR, "display");
+        nhCollision = ros::NodeHandle(nhQR, "/collision");
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
         int i = system("clear");
@@ -131,28 +149,26 @@ public:
         // test value!!!
         throttle_ = 2.0;
 
-        // configure zbar scanner to only allow QR codes (speeds up scan)
+        // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
         imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
 
         // subscribe to input video feed and control / throttle topics etc
+        subImage = imageTransport.subscribe(topicFrontCamera, 1, &QrRadar::imageCb, this);
 
-        //subImage = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
-        subImage = imageTransport.subscribe("/ardrone/front/image_raw", 1, &QrRadar::imageCb, this);
+        subThrottle = nhThrottle.subscribe("set", 1, &QrRadar::throttle_set, this);
+        subDisplayEnable = nhDisplay.subscribe("enable", 1, &QrRadar::display_enable, this);
+        subDisplayDisable = nhDisplay.subscribe("disable", 1, &QrRadar::display_disable, this);
+        subDisplaySet = nhDisplay.subscribe("set", 1, &QrRadar::display_set, this);
+        subScanTopic = nhScan.subscribe("topic", 1, &QrRadar::topic_set, this);
+        subScanWall = nhScan.subscribe("mode", 1, &QrRadar::scan_flip, this);
+        subScanSet = nhScan.subscribe("set", 1, &QrRadar::scan_set, this);
+        subKaffe = nhQR.subscribe("kaffe", 1, &QrRadar::kaffe, this);
 
-        subThrottle = nodeHandle.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
-//        subControl = nodeHandle.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
-        subDisplayEnable = nodeHandle.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
-        subDisplayDisable = nodeHandle.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
-        subDisplaySet = nodeHandle.subscribe("qr/display/set", 1, &QrRadar::display_set, this);
-        subScanTopic = nodeHandle.subscribe("qr/scan/topic", 1, &QrRadar::topic_set, this);
-        subScanWall = nodeHandle.subscribe("qr/scan/flip", 1, &QrRadar::scan_flip, this);
-        subScanSet = nodeHandle.subscribe("qr/scan/set", 1, &QrRadar::scan_set, this);
-        subKaffe = nodeHandle.subscribe("qr/kaffe", 1, &QrRadar::kaffe, this);
-
-        // set result advertisement topic
-        pubQR = nodeHandle.advertise<std_msgs::String>("qr", 1);
-        pubCollision = nodeHandle.advertise<std_msgs::String>("collision/wall", 1);
+        // Set publishers
+        pubQR = nhQR.advertise<std_msgs::String>(nhQR.getNamespace(), 1);
+        pubCollision = nhCollision.advertise<std_msgs::String>("wall", 1);
+        pubScanCount = nhQR.advertise<std_msgs::String>("count", 1);
 
         cout << "Initialized.." << endl;
 
@@ -165,6 +181,7 @@ public:
         cv::destroyWindow(OPENCV_WINDOW);
         pubQR.shutdown();
         pubCollision.shutdown();
+        pubScanCount.shutdown();
         subImage.shutdown();
         subThrottle.shutdown();
         //subControl.shutdown();
@@ -219,7 +236,6 @@ public:
         // create a copy of the image recieved.
         /*
          */
-        cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
         }
@@ -227,6 +243,11 @@ public:
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
+
+        // testing distance with bigger image
+        cv::Mat dest;
+        cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
+        cv_ptr->image = dest;
 
         // configure scanning area
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
@@ -238,10 +259,17 @@ public:
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
-        cout << "Time for scanning QR (ns) = " << ((ros::Time::now().nsec - ros_time)) << '\n';
+        cout << "Time for scanning QR (ms) = " << c.nanoToMili(ros::Time::now().nsec - ros_time) << '\n';
 
         /* scan the image for QR codes */
         const int scans = imageScanner.scan(zbar_image);
+
+        // publish amount of QR codes located.
+        if (pubScanCount.getNumSubscribers() > 0) {
+            streamQR << ros_time << pubSeperator << scans;
+            msg_scan_count.data = streamQR.str();
+            pubScanCount.publish(msg_scan_count);
+        }
 
         if (scans == 0) {
             return;
@@ -281,7 +309,6 @@ public:
 
             // ****** QR META STUFF *********
             qrLoc.clear();
-
             qrLoc.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
             qrLoc.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
             qrLoc.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
@@ -325,7 +352,7 @@ public:
 
 
             // publish collision warning right away!
-            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(0) == 'W') {
+            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(0) == 'W' && qr.dist_z_cam_wall <= 150) {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << qr.dist_z_cam_wall;
@@ -348,8 +375,6 @@ public:
             cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
             cout << endl;
 
-            //qr_mapping.set_visited(&qr_string, &qr.dist_z);
-
             if (pubQR.getNumSubscribers() > 0) {
                 streamQR.str(string());
                 streamQR.clear();
@@ -358,11 +383,6 @@ public:
                 streamQR << offsets.x << pubSeperator;
                 streamQR << offsets.y << pubSeperator;
                 streamQR << qr;
-
-
-                // testing output from message data
-                //message_data md(streamQR.str());
-                //cout << "TEST MD!!! : " << md << endl;
 
                 /* publish the qr code information */
                 msg_qr_.data = streamQR.str();
