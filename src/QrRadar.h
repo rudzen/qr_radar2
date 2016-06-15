@@ -72,7 +72,6 @@ private:
 
     bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
-    bool isWallMode = true;                                         /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
 
     ros::NodeHandle nodeHandle;                                     /*!< The nodehandler for the topics */
     image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
@@ -107,6 +106,8 @@ private:
     vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
 
     int control;                                                    /*!< Control integer */
+
+    Calculator c;
 
 public:
 
@@ -317,10 +318,10 @@ public:
             //    continue;
             //}
 
-            v2<double> offsets((qr_c.x - img_c.x) * Calculator::pix_to_cm(((qrLoc[3].x - qrLoc[0].x) + (qrLoc[2].x - qrLoc[1].x)) >> 1), (qr_c.y - img_c.y) * Calculator::pix_to_cm(((qrLoc[1].y - qrLoc[0].y) + (qrLoc[2].y - qrLoc[3].y)) >> 1));
+            v2<double> offsets((qr_c.x - img_c.x) * c.pix_to_cm(((qrLoc[3].x - qrLoc[0].x) + (qrLoc[2].x - qrLoc[1].x)) >> 1), (qr_c.y - img_c.y) * c.pix_to_cm(((qrLoc[1].y - qrLoc[0].y) + (qrLoc[2].y - qrLoc[3].y)) >> 1));
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
-            ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, &isWallMode);
+            ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, c);
 
 
             // publish collision warning right away!
@@ -595,8 +596,8 @@ public:
     }
 
     void scan_flip(const std_msgs::Empty empty) {
-        isWallMode ^= true;
-        cout << "new scan mode selected : " << (isWallMode ? "wall" : "floor") << endl;
+        c.wall_mode ^= true;
+        cout << "new scan mode selected : " << (c.wall_mode ? "wall" : "floor") << endl;
     }
 };
 

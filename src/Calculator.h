@@ -33,17 +33,6 @@
 #include "Rectangle.h"
 #include "ControlHeaders.h"
 
-//static const float D = 21.05; // cm
-static const float D_big = 21.45; // cm
-static const float D_floor = 16.65; // cm
-static const int Z = 100; // cm
-
-static const int d_big = 114; // pixels
-static const float d_floor = d_big * D_floor / D_floor; // pixels
-
-static const float focal_front = d_big * Z / D_big; // focal width for front camera
-static const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
-
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
 
@@ -52,52 +41,70 @@ class Calculator {
 
 private:
 
+    const float D_big = 21.45; // cm
+    const float D_floor = 16.65; // cm
+    const int Z = 100; // cm
+
+    const int d_big = 114; // pixels
+    const float d_floor = d_big * D_floor / D_floor; // pixels
+
+    const float focal_front = d_big * Z / D_big; // focal width for front camera
+    const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
+
 public:
 
-    // Function: Routine to get Distance between two points
+    bool wall_mode; // default is wall_mode
+
+    Calculator() {
+        wall_mode = true;
+    }
+
+    Calculator(bool wall_mode) : wall_mode(wall_mode) { }
+
+// Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
-    static int pixel_distance(const v2<int> &P, const v2<int> &Q) {
+    int pixel_distance(const v2<int> &P, const v2<int> &Q) {
         //sqrt(pow(abs(P.x - Q.x), 2) + pow(abs(P.y - Q.y), 2));
         return sqrt(abs(((Q.x - P.x) * (Q.x - P.x) + (Q.y - P.y) * (Q.y - P.y))));
     }
 
-    static int pytha(int *__restrict__ a, int * __restrict__ b) {
+    int pytha(int *__restrict__ a, int * __restrict__ b) {
         return (int) sqrt(*a * *a + *b * *b);
     }
 
-    static double avg(double *__restrict__ first, double *__restrict__ second) {
+    double avg(double *__restrict__ first, double *__restrict__ second) {
         return (*first + *second) / 2;
     }
 
-    static double angle_a(double h, double w) {
+    double angle_a(double h, double w) {
         const double a = w / h;
         if (a > 1 || a < -1) return 0;
         // convert from radians to degrees :
         return acos(a) * 180 / M_PI;
     }
 
-    static double angle_a(double *__restrict__ h, double *__restrict__ w) {
+    double angle_a(double *__restrict__ h, double *__restrict__ w) {
         const double a = *w / *h;
         if (a > 1 || a < -1) return 0;
         // convert from radians to degrees :
         return acos(a) * 180 / M_PI;
     }
 
-    static double dist_qr_projected(double h, double w, double dist, int modifier) {
+    double dist_qr_projected(double h, double w, double dist, int modifier) {
         const double a = w / h;
         if (a > 1 || a < -1) return dist;
         const double A = acos(a);
         return sin(A) * dist * modifier;
     }
 
-    static double dist_qr_projected(double *__restrict__ h, double *__restrict__ w, double *__restrict__ dist) {
+    double dist_qr_projected(double *__restrict__ h, double *__restrict__ w, double *__restrict__ dist) {
         const double a = *w / *h;
         if (a > 1 || a < -1) return *dist;
         const double A = acos(a);
         return sin(A) * *dist;
     }
 
-    static double dist_wall(double h, double w, double dist) {
+    double dist_wall(double h, double w, double dist) {
         const double a = w / h;
         if (a > 1 || a < -1) return dist;
         // convert from radians to degrees :
@@ -105,7 +112,7 @@ public:
         return cos(A) * dist;
     }
 
-    static double angle_floor(double distance, double width, double height) {
+    double angle_floor(double distance, double width, double height) {
         return atan((width / 2) / distance);
     }
 
@@ -123,29 +130,29 @@ public:
      */
 
     // Function : Converts pixels to cm
-    static double pix_to_cm(int *__restrict__ width) {
+    double pix_to_cm(int *__restrict__ width) {
         return D_big / *width;
     }
 
-    static double pix_to_cm(int width) {
-        return D_big / width;
+    double pix_to_cm(int width) {
+        return (wall_mode ? D_big : D_floor) / width;
     }
 
     // Function: Converts cm to pixels
-    static int cm_to_pix(double *__restrict__ cm) {
-        return (int) round(*cm / D_big);
+    int cm_to_pix(double *__restrict__ cm) {
+        return (int) round(*cm / (wall_mode ? D_big : D_floor));
     }
 
     // Function: Horizontal offset calculation in cm
     // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_horizontal(int *__restrict__ qr_x, int *__restrict__ img_x, double *__restrict__ cm_pix) {
+    double offset_horizontal(int *__restrict__ qr_x, int *__restrict__ img_x, double *__restrict__ cm_pix) {
         // > 0 = left, < 0 right
         return (*qr_x - *img_x) * *cm_pix;
     }
 
     // Function: Vertical offset calculation in cm
     // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    static double offset_vertical(int *__restrict__ qr_y, int *__restrict__ img_y, double *__restrict__ cm_pix) {
+    double offset_vertical(int *__restrict__ qr_y, int *__restrict__ img_y, double *__restrict__ cm_pix) {
         // > 0 up, < 0 down
         return (*qr_y - *img_y) * *cm_pix;
     }
@@ -170,11 +177,11 @@ public:
     // d' = aparent width in pixels at any given distance
     // since f / d' = Z'/ D <-> Z' = D * f / d'
     // Z' is then the actual distance of the CURRENT object detected.
-    static double distance_z_wall(double *__restrict__ pix_width) {
+    double distance_z_wall(double *__restrict__ pix_width) {
         return D_big * focal_front / *pix_width;
     }
 
-    static double distance_z_floor(double *__restrict__ pix_width) {
+    double distance_z_floor(double *__restrict__ pix_width) {
         return D_floor * focal_buttom / *pix_width;
     }
 
@@ -267,7 +274,7 @@ public:
         return ret;
     }
 
-    static void balance_white(cv::Mat mat) {
+    void balance_white(cv::Mat mat) {
         double discard_ratio = 0.05;
         int hists[3][256];
         memset(hists, 0, 3 * 256 * sizeof(int));

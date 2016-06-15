@@ -40,25 +40,25 @@ public:
 
     virtual ~data() { }
 
-    data(T width, T width_top, T width_bottom, T height, T height_left, T height_right) :
+    data(T width, T width_top, T width_bottom, T height, T height_left, T height_right, Calculator &c) :
             width(width), width_top(width_top), width_bottom(width_bottom), height(height), height_left(height_left), height_right(height_right) {
-        dist_z = smallest(Calculator::distance_z_wall(&width), Calculator::distance_z_wall(&height));
+        dist_z = smallest(c.distance_z_wall(&width), c.distance_z_wall(&height));
     }
 
-    data(T width_top, T width_bottom, T height_left, T height_right, bool *wall) : width_top(width_top), width_bottom(width_bottom), height_left(height_left), height_right(height_right) {
-        width = Calculator::avg(&width_top, &width_bottom);
-        height = Calculator::avg(&height_left, &height_right);
-        if (*wall) {
-            dist_z = smallest(Calculator::distance_z_wall(&width), Calculator::distance_z_wall(&height));
+    data(T width_top, T width_bottom, T height_left, T height_right, Calculator &c) : width_top(width_top), width_bottom(width_bottom), height_left(height_left), height_right(height_right) {
+        width = c.avg(&width_top, &width_bottom);
+        height = c.avg(&height_left, &height_right);
+        if (c.wall_mode) {
+            dist_z = smallest(c.distance_z_wall(&width), c.distance_z_wall(&height));
         } else {
-            dist_z = smallest(Calculator::distance_z_floor(&width), Calculator::distance_z_floor(&height));
+            dist_z = smallest(c.distance_z_floor(&width), c.distance_z_floor(&height));
         }
-        angle = Calculator::angle_a(&height, &width);
-        dist_z_projected = Calculator::dist_qr_projected(&height, &width, &dist_z);
+        angle = c.angle_a(&height, &width);
+        dist_z_projected = c.dist_qr_projected(&height, &width, &dist_z);
         if (height_right >= height_left) {
             dist_z_projected = -dist_z_projected;
         }
-        dist_z_cam_wall = Calculator::dist_wall(height, width, dist_z);
+        dist_z_cam_wall = c.dist_wall(height, width, dist_z);
     }
 
     T width;
