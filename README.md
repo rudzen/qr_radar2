@@ -43,25 +43,23 @@ sleep 3
 
 
 ```
-/ardrone/image_raw (image_transport) - The main subscription where it receives it's images to scan.
+/ardrone/front/image_raw (image_transport) - The main subscription where it receives it's images to scan.
 qr/scan/topic (std_msgs/String) - Changes the image subscription topic.
-qr/scan/flip (std_msgs/Empty) - Flips between wall and floor sized QR-code measurements to achieve higher accuracy in distances.
+qr/scan/mode (std_msgs/Empty) - Flips between wall and floor sized QR-code measurements to achieve higher accuracy in distances.
 qr/scan/set (std_msgs/Bool) - manually dis-/enables the scanning of received images.
+
 qr/throttle/set (std_msgs/Float32) - Control the throttle through here. Min. allowed is > 0
-qr/control/set (std_msgs/Byte) - Control the scanning areas using this.
+
 qr/display/enable (std_msgs/Empty) - Enables the output image display of discovered QR-codes.
 qr/display/disable (std_msgs/Empty) - Disables the output image display of discovered QR-codes.
 qr/display/set (std_msgs/Bool) - Manually changes the display window on or off.
+
+qr/kaffe (std_msgs/Empty) - Black or with cream?
 ```
-
-
-
-
-
 
 # FORMAT #
 
-The data being published is send in the following format seperated by \n
+The data being published is send in the following format seperated by a single space (' ')
 
 * ROSTIME (uint_32)
 * QRTEXT (string)
