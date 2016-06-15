@@ -56,6 +56,7 @@ using namespace std;
 
 static const std::string OPENCV_WINDOW = "QR-Code window";
 static const int MAX_VECTOR_SIZE = 4;
+static const char pubSeperator = ' ';
 
 static const string VERSION = "0.2.1";
 
@@ -68,72 +69,48 @@ static const string VERSION = "0.2.1";
  */
 class QrRadar {
 
-    bool display_output = true;
-    /*!< Depending on the state, will display output window of scanned QR-code */
-    bool scan_images = true;
-    /*!< If set to false, any incomming images from the image topic will be ignored */
-    bool wall_mode = true;
-    /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
+private:
 
-    ros::NodeHandle nh_;
-    /*!< The nodehandler for the topics */
-    image_transport::ImageTransport it_;
-    /*!< Makes it possible to recieve messages in the form of an image */
-    image_transport::Subscriber sub_image_;
-    /*!< The subscription object for the image topic */
-    ros::Subscriber sub_throttle_;
-    /*!< Subscription object for setting the throttle */
-    ros::Subscriber sub_control_;
-    /*!< Subscription object for setting the control settings */
-    ros::Subscriber sub_display_enable_;
-    /*!< Subscription object to enable display window */
-    ros::Subscriber sub_display_disable_;
-    /*!< Subscription object to disable the display window */
-    ros::Subscriber sub_scan_topic_;
-    /*!< Subscription object to enable scanning of incomming images */
-    ros::Subscriber sub_scan_disable_;
-    /*!< Subscription object to disable scanning of incomming images */
-    ros::Subscriber sub_scan_wall_;
-    /*!< Subscription for switching between wall and floor mode.*/
-    ros::Subscriber sub_scan_set_;
-    /*!< Subscription object to enable / disable scanning of incomming images */
-    ros::Subscriber sub_display_set_;
-    /*!< Subscription object to enable / disable image display of scanned QR-code */
-    ros::Subscriber sub_kafkaf_;
-    /*!< Subscription object to make coffeeeeeeeeee!!!! */
+    bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
+    bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
+    bool isWallMode = true;                                             /*!< If set to true, the wall calculations are used, otherwise it will use the floor calculations */
 
-
-    //mapqr qr_mapping;
+    ros::NodeHandle nodeHandle;                                     /*!< The nodehandler for the topics */
+    image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
+    image_transport::Subscriber subImage;                           /*!< The subscription object for the image topic */
+    ros::Subscriber subThrottle;                                    /*!< Subscription object for setting the throttle */
+    ros::Subscriber subControl;                                     /*!< Subscription object for setting the control settings */
+    ros::Subscriber subDisplayEnable;                               /*!< Subscription object to enable display window */
+    ros::Subscriber subDisplayDisable;                              /*!< Subscription object to disable the display window */
+    ros::Subscriber subDisplaySet;                                  /*!< Subscription object to enable / disable image display of scanned QR-code */
+    ros::Subscriber subScanTopic;                                   /*!< Subscription object to enable scanning of incomming images */
+    ros::Subscriber subScanDisable;                                 /*!< Subscription object to disable scanning of incomming images */
+    ros::Subscriber subScanWall;                                    /*!< Subscription for switching between wall and floor mode.*/
+    ros::Subscriber subScanSet;                                     /*!< Subscription object to enable / disable scanning of incomming images */
+    ros::Subscriber subKaffe;                                       /*!< Subscription object to make coffeeeeeeeeee!!!! */
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
-    boost::unordered_map<std::string, ros::Time> qr_memory_;    /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
+    boost::unordered_map<std::string, ros::Time> qr_memory_;        /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
 #pragma clang diagnostic pop
-    zbar::ImageScanner scanner_;
-    /*!< The scanner object which scans for QR-code(s) in a given image */
-    ros::Publisher pub_qr_;
-    /*!< Publisher for the result(s) gathered from the QR-code */
-    ros::Publisher pub_pp_show_;
-    /*!< Publisher for the result(s) gathered from the QR-code to prettyprint */
+    zbar::ImageScanner imageScanner;                                /*!< The scanner object which scans for QR-code(s) in a given image */
 
-    float throttle_; // to slow down the aggresiveness of publishing!!
+    ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
 
-    std_msgs::String msg_qr_;
-    /*!< String message object for publishing the result */
-    std_msgs::Empty msg_pp_show;
-    /*!< String message object for publishing the result */
-    std_msgs::String msg_control_;
-    /*!< String message for async feedback on the state of the throttle changes */
+    float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
 
-    ostringstream stream_qr_;
-    /*!< Output stringstream for gathering the information which is to be published */
-    vector<v2<int>> pd_;
-    /*!< vector that contains the location of all 4 QR-code corners from the scan */
+    std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
+    std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
 
-    int control;                                /*!< Control integer */
+    ostringstream streamQR;                                         /*!< Output stringstream for gathering the information which is to be published */
+    vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
+
+    int control;                                                    /*!< Control integer */
 
 public:
-    QrRadar() : it_(nh_) {
+
+
+    QrRadar() : imageTransport(nodeHandle) {
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
         int i = system("clear");
@@ -149,33 +126,32 @@ public:
         control = QR_CONTROL_ALL;
 
         // reserve vector space
-        pd_.reserve(MAX_VECTOR_SIZE);
+        qrLoc.reserve(MAX_VECTOR_SIZE);
 
         // test value!!!
         throttle_ = 2.0;
 
         // configure zbar scanner to only allow QR codes (speeds up scan)
-        scanner_.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
-        scanner_.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
+        imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
+        imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
 
         // subscribe to input video feed and control / throttle topics etc
 
-        //sub_image_ = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
-        sub_image_ = it_.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
+        //subImage = it_.subscribe("/usb_cam/image_raw", 1, &QrRadar::imageCb, this);
+        subImage = imageTransport.subscribe("/ardrone/image_raw", 1, &QrRadar::imageCb, this);
 
-        sub_throttle_ = nh_.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
-        sub_control_ = nh_.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
-        sub_display_enable_ = nh_.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
-        sub_display_disable_ = nh_.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
-        sub_display_set_ = nh_.subscribe("qr/display/set", 1, &QrRadar::display_set, this);
-        sub_scan_topic_ = nh_.subscribe("qr/scan/topic", 1, &QrRadar::topic_set, this);
-        sub_scan_wall_ = nh_.subscribe("qr/scan/flip", 1, &QrRadar::scan_flip, this);
-        sub_scan_set_ = nh_.subscribe("qr/scan/set", 1, &QrRadar::scan_set, this);
-        sub_kafkaf_ = nh_.subscribe("qr/kaffe", 1, &QrRadar::kaffe, this);
+        subThrottle = nodeHandle.subscribe("qr/throttle/set", 1, &QrRadar::throttle_set, this);
+        subControl = nodeHandle.subscribe("qr/control/set", 1, &QrRadar::control_set, this);
+        subDisplayEnable = nodeHandle.subscribe("qr/display/enable", 1, &QrRadar::display_enable, this);
+        subDisplayDisable = nodeHandle.subscribe("qr/display/disable", 1, &QrRadar::display_disable, this);
+        subDisplaySet = nodeHandle.subscribe("qr/display/set", 1, &QrRadar::display_set, this);
+        subScanTopic = nodeHandle.subscribe("qr/scan/topic", 1, &QrRadar::topic_set, this);
+        subScanWall = nodeHandle.subscribe("qr/scan/flip", 1, &QrRadar::scan_flip, this);
+        subScanSet = nodeHandle.subscribe("qr/scan/set", 1, &QrRadar::scan_set, this);
+        subKaffe = nodeHandle.subscribe("qr/kaffe", 1, &QrRadar::kaffe, this);
 
         // set result advertisement topic
-        pub_qr_ = nh_.advertise<std_msgs::String>("qr", 1);
-        pub_pp_show_ = nh_.advertise<std_msgs::String>("prettyprint/now", 1);
+        pubQR = nodeHandle.advertise<std_msgs::String>("qr", 1);
 
         cout << "Initialized.." << endl;
 
@@ -186,19 +162,20 @@ public:
     ~QrRadar() {
         // attempt to clean up nicely..
         cv::destroyWindow(OPENCV_WINDOW);
-        sub_image_.shutdown();
-        sub_throttle_.shutdown();
-        sub_control_.shutdown();
-        sub_display_enable_.shutdown();
-        sub_display_disable_.shutdown();
-        sub_scan_topic_.shutdown();
-        sub_scan_disable_.shutdown();
-        pub_qr_.shutdown();
-        sub_scan_wall_.shutdown();
-        sub_scan_set_.shutdown();
-        sub_display_set_.shutdown();
-        stream_qr_.str(std::string());
-        stream_qr_.clear();
+        subImage.shutdown();
+        subThrottle.shutdown();
+        subControl.shutdown();
+        subDisplayEnable.shutdown();
+        subDisplayDisable.shutdown();
+        subScanTopic.shutdown();
+        subScanDisable.shutdown();
+        pubQR.shutdown();
+        subScanWall.shutdown();
+        subScanSet.shutdown();
+        subDisplaySet.shutdown();
+        subKaffe.shutdown();
+        streamQR.str(std::string());
+        streamQR.clear();
     }
 
     /*! \brief Image callback function
@@ -209,13 +186,13 @@ public:
     void imageCb(const sensor_msgs::ImageConstPtr &msg) {
 
         // make sure the control unit acts quickly!
-        if (control == QR_CONTROL_NONE || scan_images == false) {
+        if (control == QR_CONTROL_NONE || !isScanEnabled) {
             return;
         }
 
         /*
          * temp. disabled..
-        if (pub_qr_.getNumSubscribers() == 0) {
+        if (pubQR.getNumSubscribers() == 0) {
             return;
         }
         */
@@ -260,7 +237,7 @@ public:
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
         /* scan the image for QR codes */
-        const int scans = scanner_.scan(zbar_image);
+        const int scans = imageScanner.scan(zbar_image);
 
         if (scans == 0) {
             return;
@@ -299,15 +276,15 @@ public:
             }
 
             // ****** QR META STUFF *********
-            pd_.clear();
+            qrLoc.clear();
 
-            pd_.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
-            pd_.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
-            pd_.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
-            pd_.push_back(v2<int>(symbol->get_location_x(3), symbol->get_location_y(3)));
+            qrLoc.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
+            qrLoc.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
+            qrLoc.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
+            qrLoc.push_back(v2<int>(symbol->get_location_x(3), symbol->get_location_y(3)));
 
             // set dimension for qr (using widest dimensions !!)
-            intrect qr_rect(smallest(pd_[0].x, pd_[1].x), smallest(pd_[0].y, pd_[2].y), largest(pd_[2].x, pd_[3].x), largest(pd_[1].y, pd_[2].y));
+            intrect qr_rect(smallest(qrLoc[0].x, qrLoc[1].x), smallest(qrLoc[0].y, qrLoc[2].y), largest(qrLoc[2].x, qrLoc[3].x), largest(qrLoc[1].y, qrLoc[2].y));
             if (qr_rect > img_dim) {
                 cout << "qr code dimensions are not within controller settings.." << endl;
                 return;
@@ -317,7 +294,7 @@ public:
 
             /* precise (based on qr locations from zbar) calculation of center */
             int counter = 0;
-            for (v2<int> &point : pd_) {
+            for (v2<int> &point : qrLoc) {
                 qr_c.x += point.x;
                 qr_c.y += point.y;
                 /* point order is left/top, left/bottom, right/bottom, right/top */
@@ -338,10 +315,10 @@ public:
             //    continue;
             //}
 
-            v2<double> offsets((qr_c.x - img_c.x) * Calculator::pix_to_cm(((pd_[3].x - pd_[0].x) + (pd_[2].x - pd_[1].x)) >> 1), (qr_c.y - img_c.y) * Calculator::pix_to_cm(((pd_[1].y - pd_[0].y) + (pd_[2].y - pd_[3].y)) >> 1));
+            v2<double> offsets((qr_c.x - img_c.x) * Calculator::pix_to_cm(((qrLoc[3].x - qrLoc[0].x) + (qrLoc[2].x - qrLoc[1].x)) >> 1), (qr_c.y - img_c.y) * Calculator::pix_to_cm(((qrLoc[1].y - qrLoc[0].y) + (qrLoc[2].y - qrLoc[3].y)) >> 1));
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
-            ddata qr(pd_[3].x - pd_[0].x, pd_[2].x - pd_[1].x, pd_[1].y - pd_[0].y, pd_[2].y - pd_[3].y, &wall_mode);
+            ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, &isWallMode);
 
             cout << "Time for scanning QR code and calculating (ms) = " << ((ros::Time::now().sec - ros_time) / 1000000) << '\n';
 
@@ -361,43 +338,42 @@ public:
 
             //qr_mapping.set_visited(&qr_string, &qr.dist_z);
 
-            if (pub_qr_.getNumSubscribers() > 0) {
-                stream_qr_.str(string());
-                stream_qr_.clear();
-                stream_qr_ << ros_time << '\n';
-                stream_qr_ << qr_string << '\n';
-                stream_qr_ << offsets.x << '\n';
-                stream_qr_ << offsets.y << '\n';
-                stream_qr_ << qr;
+            if (pubQR.getNumSubscribers() > 0) {
+                streamQR.str(string());
+                streamQR.clear();
+                streamQR << ros_time << pubSeperator;
+                streamQR << qr_string << pubSeperator;
+                streamQR << offsets.x << pubSeperator;
+                streamQR << offsets.y << pubSeperator;
+                streamQR << qr;
 
 
                 // testing output from message data
-                message_data md(stream_qr_.str());
-                cout << "TEST MD!!! : " << md << endl;
+                //message_data md(streamQR.str());
+                //cout << "TEST MD!!! : " << md << endl;
 
                 /* publish the qr code information */
-                msg_qr_.data = stream_qr_.str();
-                pub_qr_.publish(msg_qr_);
-                pub_pp_show_.publish(msg_qr_);
+                msg_qr_.data = streamQR.str();
+                pubQR.publish(msg_qr_);
             }
 
 
-            if (display_output) {
+            if (shouldDisplayDebugWindow) {
 
                 // draw lines on image through the center in both x and y
                 cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255));
                 cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
 
                 // draw a box around the DETECTED Qr-Code (!!)
-                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[1].x, pd_[1].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), cvPoint(pd_[3].x, pd_[3].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
+                cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
 
-                cv::circle(cv_ptr->image, cvPoint(pd_[0].x, pd_[0].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(pd_[1].x, pd_[1].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(pd_[2].x, pd_[2].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(pd_[3].x, pd_[3].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(qrLoc[1].x, qrLoc[1].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), 3, CV_RGB(255, 255, 255));
+                cv::circle(cv_ptr->image, cvPoint(qrLoc[3].x, qrLoc[3].y), 3, CV_RGB(255, 255, 255));
 
                 ostringstream tmpss;
 
@@ -528,16 +504,16 @@ public:
                 msg_control_.data = QR_CONTROL_MSG_FAIL;
                 break;
         }
-        pub_qr_.publish(msg_control_);
+        pubQR.publish(msg_control_);
     }
 
     /*! \brief Enables display output
     *
-    * Enables the display_output setting for this node.
+    * Enables the shouldDisplayDebugWindow setting for this node.
     */
     void display_enable(const std_msgs::Empty empty) {
         cout << "display enabled.." << endl;
-        display_output = true;
+        shouldDisplayDebugWindow = true;
     }
 
     /*! \brief Disables display output
@@ -546,25 +522,25 @@ public:
     */
     void display_disable(const std_msgs::Empty empty) {
         cout << "display disabled.." << endl;
-        display_output = false;
+        shouldDisplayDebugWindow = false;
         cv::destroyAllWindows();
     }
 
     void display_set(const std_msgs::Bool msg) {
         cout << "display_set command recieved... ";
-        if (msg.data != display_output) {
-            display_output = msg.data;
-            cout << "new value : " << display_output;
+        if (msg.data != shouldDisplayDebugWindow) {
+            shouldDisplayDebugWindow = msg.data;
+            cout << "new value : " << shouldDisplayDebugWindow;
         } else {
-            cout << "value already set : " << display_output;
+            cout << "value already set : " << shouldDisplayDebugWindow;
         }
         cout << endl;
     }
 
     void display_flip(const std_msgs::Empty msg) {
-        display_output ^= true;
+        shouldDisplayDebugWindow ^= true;
         true;
-        cout << "image display configured to : o" << (display_output ? "n" : "ff") << endl;
+        cout << "image display configured to : o" << (shouldDisplayDebugWindow ? "n" : "ff") << endl;
     }
 
     void kaffe(const std_msgs::Empty msg) {
@@ -589,11 +565,11 @@ public:
     */
     void scan_set(const std_msgs::Bool msg) {
         cout << "scan_set command recieved... ";
-        if (msg.data != scan_images) {
-            scan_images = msg.data;
-            cout << "new value : " << scan_images;
+        if (msg.data != isScanEnabled) {
+            isScanEnabled = msg.data;
+            cout << "new value : " << isScanEnabled;
         } else {
-            cout << "value already set : " << scan_images;
+            cout << "value already set : " << isScanEnabled;
         }
         cout << endl;
     }
@@ -604,14 +580,14 @@ public:
     */
     void topic_set(const std_msgs::String::ConstPtr msg) {
         cout << "scan enabled.." << endl;
-        scan_images = true;
-        sub_image_.shutdown();
-        sub_image_ = it_.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
+        isScanEnabled = true;
+        subImage.shutdown();
+        subImage = imageTransport.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
     }
 
     void scan_flip(const std_msgs::Empty empty) {
-        wall_mode ^= true;
-        cout << "new scan mode selected : " << (wall_mode ? "wall" : "floor") << endl;
+        isWallMode ^= true;
+        cout << "new scan mode selected : " << (isWallMode ? "wall" : "floor") << endl;
     }
 };
 

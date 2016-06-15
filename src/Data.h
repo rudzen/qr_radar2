@@ -28,6 +28,8 @@
 #ifndef QR_RADAR2_DATA_H
 #define QR_RADAR2_DATA_H
 
+#include "QrRadar.h"
+
 template<class T>
 class data {
 
@@ -73,7 +75,7 @@ public:
 
 template<class T>
 ostream &operator<<(ostream &stream, data<T> d) {
-    stream << d.dist_z << '\n' << d.angle << '\n' << d.dist_z_projected << '\n' << d.dist_z_cam_wall;
+    stream << d.dist_z << ' ' << d.angle << ' ' << d.dist_z_projected << ' ' << d.dist_z_cam_wall;
     return stream;
 }
 
