@@ -43,6 +43,8 @@ private:
 
     const uint64_t numerator = (1LL << 32) / 1000000;
 
+    //const string qr_codes[] = {"WSunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
     const float D_big = 21.45; // cm
     const float D_floor = 16.65; // cm
     const int Z = 100; // cm
@@ -53,7 +55,32 @@ private:
     const float focal_front = d_big * Z / D_big; // focal width for front camera
     const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
+    const float qr_seperation_cm = 10.0f;
+
+    typedef pair<int, int> qr_code;
+
+    typedef pair<float, float> wall_distances;
+    map<qr_code, wall_distances> qr_wall_dist;
+    map<float, string> qr_distance;
+
+
+
 public:
+
+    void set_qr_distances() {
+        qr_distance[0] = 100.;
+        qr_distance[2] = qr_distance[0];
+        qr_distance[1] = 105.;
+        qr_distance[3] = qr_distance[1];
+
+        const float wall_lenght = 500;
+        for (int i = 0; i < 5; ++i) {
+            for (int j = 0; j < 5; ++j) {
+                qr_wall_dist[qr_code(i, j)] = wall_distances(-wall_lenght - ((i + 1) * qr_seperation_cm), wall_lenght - (j + 1) * qr_seperation_cm);
+                cout << i << ':' << 'j' << '>' << qr_wall_dist[qr_code(i, j)].first << " - " << qr_wall_dist[qr_code(i, j)].second << '\n';
+            }
+        }
+    }
 
     bool wall_mode; // default is wall_mode
 
@@ -145,19 +172,15 @@ public:
         return (int) round(*cm / (wall_mode ? D_big : D_floor));
     }
 
-    // Function: Horizontal offset calculation in cm
-    // Description: Calculates the horizontal offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    double offset_horizontal(int *__restrict__ qr_x, int *__restrict__ img_x, double *__restrict__ cm_pix) {
-        // > 0 = left, < 0 right
-        return (*qr_x - *img_x) * *cm_pix;
+    double getLeftWallDistance(string *qr_text) {
+
     }
 
-    // Function: Vertical offset calculation in cm
-    // Description: Calculates the vertical offset in cm of the QR-Code in comparison with the center of the image is was detected in.
-    double offset_vertical(int *__restrict__ qr_y, int *__restrict__ img_y, double *__restrict__ cm_pix) {
-        // > 0 up, < 0 down
-        return (*qr_y - *img_y) * *cm_pix;
+    double getRightWallDistance() {
+
     }
+
+
 
     // Function : Calculates the REAL distance in Z axis from an object.
     // Description : The formula REQUIRES several things before it is possible.

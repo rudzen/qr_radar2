@@ -60,6 +60,7 @@ static const char pubSeperator = ' ';
 
 static const string VERSION = "0.3.0";
 
+
 /*! \brief Main QR-Scanning class.
  *
  *  The main controller class for handling the inputs and outputs
@@ -73,7 +74,7 @@ private:
 
     //const string topicFrontCamera = "/usb_cam/image_raw";
     const string topicFrontCamera = "/ardrone/front/image_raw";
-    const string topicButtomCamera = "/ardrone/buttom/image_raw";
+    const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
 
@@ -150,8 +151,8 @@ public:
         // reserve vector space
         qrLoc.reserve(MAX_VECTOR_SIZE);
 
-        // test value!!!
-        throttle_ = 2.0;
+        // interval between (in ros time) sending identical qr-code information, based on it's text
+        throttle_ = 2;
 
         // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
         imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
@@ -173,6 +174,8 @@ public:
         pubQR = nhQR.advertise<std_msgs::String>(nhQR.getNamespace(), 1);
         pubCollision = nhCollision.advertise<std_msgs::String>("wall", 1);
         pubScanCount = nhQR.advertise<std_msgs::String>("count", 1);
+
+        c.set_qr_distances();
 
         cout << "Initialized.." << endl;
 
@@ -214,11 +217,14 @@ public:
         }
 
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
+        uint32_t ros_time_end;
         uint32_t ros_time = ros::Time::now().nsec;
 
+
+        // share the image
+        //cv_bridge::CvImageConstPtr cv_ptr;
+
         // create a copy of the image recieved.
-        /*
-         */
         cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
@@ -232,9 +238,10 @@ public:
         cv::Mat dest = cv::Mat(cv_ptr->image.rows, cv_ptr->image.cols, cv_ptr->image.type());
         //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
-        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, cv_ptr->image);
-        cv::equalizeHist(cv_ptr->image, dest);
-        cv::bilateralFilter(dest, cv_ptr->image, 1, 1, 1);
+        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
+        cv::equalizeHist(dest, cv_ptr->image);
+        //cv::bilateralFilter(dest, cv_ptr->image, 5, 1, 2);
+        //cv_ptr->image = dest.clone();
         //dest.release();
 
         // configure scanning area
@@ -243,7 +250,7 @@ public:
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
-        cout << "Time for scanning QR (ms) = " << c.nanoToMili(ros::Time::now().nsec - ros_time) << '\n';
+        ros_time_end = ros::Time::now().nsec;
 
         /* scan the image for QR codes */
         const int scans = imageScanner.scan(zbar_image);
@@ -293,6 +300,7 @@ public:
 
             // ****** QR META STUFF *********
             qrLoc.clear();
+            /* location order is left/top, left/bottom, right/bottom, right/top */
             qrLoc.push_back(v2<int>(symbol->get_location_x(0), symbol->get_location_y(0)));
             qrLoc.push_back(v2<int>(symbol->get_location_x(1), symbol->get_location_y(1)));
             qrLoc.push_back(v2<int>(symbol->get_location_x(2), symbol->get_location_y(2)));
@@ -308,15 +316,12 @@ public:
             v2<int> qr_c; // this is the main center point from where all calculations are taking place!
 
             /* precise (based on qr locations from zbar) calculation of center */
-            int counter = 0;
             for (v2<int> &point : qrLoc) {
                 qr_c.x += point.x;
                 qr_c.y += point.y;
-                /* point order is left/top, left/bottom, right/bottom, right/top */
-                ++counter;
             }
-            qr_c.x /= counter;
-            qr_c.y /= counter;
+            qr_c.x /= qrLoc.size();
+            qr_c.y /= qrLoc.size();
 
             /* set the image center (generic for any size) */
             v2<int> img_c(cv_ptr->image.cols >> 1, cv_ptr->image.rows >> 1);
@@ -375,7 +380,10 @@ public:
             if (shouldDisplayDebugWindow) {
                 createQRImage(cv_ptr, &qr, &symbol_counter, &ros_time);
             }
+            cout << "Time for scan/calc/show of complete image (ms) = " << c.nanoToMili(ros_time_end - ros_time) << '\n';
         }
+
+
     }
 
     /*! \brief Checks if control setting is in effect
@@ -589,8 +597,7 @@ public:
         ostringstream tmpss;
 
         tmpss << "d:" << qr->dist_z << " dp:" << qr->dist_z_projected << " a:" << qr->angle;
-
-        cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
+        cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 3, cv_ptr->image.rows >> 2), 1, 2, CV_RGB(0, 0, 0), 2);
 
         // show the image
         cv::imshow(OPENCV_WINDOW, cv_ptr->image);

@@ -27,22 +27,18 @@ project(qr_radar2)
 add_definitions(-std=c++11)
 add_definitions(-DUSE_RESTRICT)
 add_definitions(-O3)
-#add_definitions(-Wall)
 
-## Find catkin and any catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp std_msgs genmsg cv_bridge roslint image_transport)
 find_package(OpenCV REQUIRED)
 
-FIND_PACKAGE(Boost)
-IF (Boost_FOUND)
-    INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
-    ADD_DEFINITIONS( "-DHAS_BOOST" )
-ENDIF()
+find_package(Boost)
+if (Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIR})
+    add_definitions( "-DHAS_BOOST" )
+endif()
 
-## Declare a catkin package
 catkin_package()
 
-## Build talker and listener
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_executable(qr_radar2 src/QrRadar.cpp src/Data.h src/Vec.h src/Rectangle.h src/ControlHeaders.h src/Calculator.h src/PrettyPrint.h)

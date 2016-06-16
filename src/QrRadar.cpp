@@ -31,15 +31,15 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "qr_radar");
     QrRadar qr;
 
+    /*
     ros::MultiThreadedSpinner spinner = ros::MultiThreadedSpinner(2);
     spinner.spin();
+    */
 
-    /*
-    ros::Rate loop_rate(5);
+    ros::Rate loop_rate(10);
     while (ros::ok()) {
         ros::spinOnce();
         loop_rate.sleep();
     }
-     */
     return 0;
 }
