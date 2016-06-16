@@ -232,11 +232,9 @@ public:
         cv::Mat dest = cv::Mat(cv_ptr->image.rows, cv_ptr->image.cols, cv_ptr->image.type());
         //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
-        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
-        cv::equalizeHist(dest, cv_ptr->image);
-
-        //ip.imadjust(cv_ptr->image, dest);
-        //cv_ptr->image = dest.clone();
+        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, cv_ptr->image);
+        cv::equalizeHist(cv_ptr->image, dest);
+        cv::bilateralFilter(dest, cv_ptr->image, 1, 1, 1);
         dest.release();
 
         // configure scanning area
@@ -335,7 +333,6 @@ public:
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
             ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, c);
-
 
             // publish collision warning right away!
             if (pubCollision.getNumSubscribers() > 0 && qr_string.at(0) == 'W' && qr.dist_z_cam_wall <= 150) {
