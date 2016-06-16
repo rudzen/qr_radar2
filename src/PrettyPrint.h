@@ -49,10 +49,10 @@ class PrettyPrint {
     typedef pair<int, string> menuentry;
 
     const int MAX_LEN = 78;
-    const int MAX_HEI = 20;
+    //const int MAX_HEI = 20;
 
     const char dot = '^';
-    const char data_sep = '|';
+    //const char data_sep = '|';
 
     const string SEP = replicate(dot, MAX_LEN);
 
@@ -60,9 +60,9 @@ class PrettyPrint {
     const string TITEL2 = "<< Gruppe 8 >>";
     const string INFO = "R.A.Kohn";
 
-    const int TITLE_LEN = (int) (TITEL.length() + TITEL2.length());
+    //const int TITLE_LEN = (int) (TITEL.length() + TITEL2.length());
 
-    int port;
+    //int port;
     int pos = -1;
     string version;
 
@@ -253,7 +253,7 @@ public:
             return s;
         }
         ostringstream ss;
-        ss << dot << s << space(MAX_LEN - 3 - len) << dot;
+        ss << dot << s << space((MAX_LEN - 3 - len)) << dot;
         return ss.str();
     }
 
@@ -267,6 +267,10 @@ public:
         return replicate(' ', amount);
     }
 
+    string space(unsigned long amount) {
+        return replicate(' ', amount);
+    }
+
     /**
      * Replicate a char
      *
@@ -274,7 +278,7 @@ public:
      * @param amount : how many time to replicate
      * @return the string containing amount char
      */
-    static string replicate(char c, int amount) {
+    string replicate(char c, unsigned long amount) {
         ostringstream ss;
         for (int i = 1; i <= amount; ++i) {
             ss << c;
@@ -282,7 +286,15 @@ public:
         return ss.str();
     }
 
-    static string replicate(string c, int amount) {
+    string replicate(char c, int amount) {
+        ostringstream ss;
+        for (int i = 1; i <= amount; ++i) {
+            ss << c;
+        }
+        return ss.str();
+    }
+
+    string replicate(string c, int amount) {
         ostringstream ss;
         for (int i = 1; i <= amount; ++i) {
             ss << c;

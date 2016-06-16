@@ -36,7 +36,7 @@ struct rect {
 };
 
 typedef rect<int> intrect;
-typedef rect<float> floatrect;
+//typedef rect<float> floatrect;
 
 template<class T>
 ostream &operator<<(ostream &stream, rect<T> r) {

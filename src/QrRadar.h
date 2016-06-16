@@ -40,6 +40,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
 #include <zbar.h>
 #include "boost/unordered_map.hpp"
 #include <vector>
@@ -73,6 +74,8 @@ private:
     //const string topicFrontCamera = "/usb_cam/image_raw";
     const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/buttom/image_raw";
+
+    std::map<bool, string> cameraWallTopic;
 
     bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
@@ -123,8 +126,11 @@ private:
 
 public:
 
-    QrRadar() :
-            imageTransport(nhQR) {
+    QrRadar() : imageTransport(nhQR) {
+
+        /* configure camera mapping */
+        cameraWallTopic[true] = topicFrontCamera;
+        cameraWallTopic[false] = topicButtomCamera;
 
         /* configure nodehandle sub namespaces */
         nhScan = ros::NodeHandle(nhQR, "scan");
@@ -209,29 +215,8 @@ public:
             return;
         }
 
-        /*
-         * temp. disabled..
-        if (pubQR.getNumSubscribers() == 0) {
-            return;
-        }
-        */
-
-        //cout << "Timing everything with cv_bridge share & DBG =" << DBG << std::endl;
-
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
         uint32_t ros_time = ros::Time::now().nsec;
-
-        // share test
-        /*
-        cv_bridge::CvImageConstPtr cv_ptr;
-        try {
-            cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::MONO8);
-        }
-        catch (cv_bridge::Exception &e) {
-            ROS_ERROR("cv_bridge exception: %s", e.what());
-            return;
-        }
-         */
 
         // create a copy of the image recieved.
         /*
@@ -247,7 +232,11 @@ public:
         // testing distance with bigger image
         cv::Mat dest;
         cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
-        cv_ptr->image = dest;
+        cv::equalizeHist(dest, cv_ptr->image);
+        //ip.imadjust(cv_ptr->image, dest);
+        //cv_ptr->image = dest.clone();
+        dest.release();
+
 
         // configure scanning area
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
@@ -390,47 +379,7 @@ public:
             }
 
             if (shouldDisplayDebugWindow) {
-
-                // draw lines on image through the center in both x and y
-                cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255));
-                cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
-
-                // draw a box around the DETECTED Qr-Code (!!)
-                cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
-                cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
-
-                cv::circle(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(qrLoc[1].x, qrLoc[1].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), 3, CV_RGB(255, 255, 255));
-                cv::circle(cv_ptr->image, cvPoint(qrLoc[3].x, qrLoc[3].y), 3, CV_RGB(255, 255, 255));
-
-                ostringstream tmpss;
-
-                tmpss << "d:" << qr.dist_z << " dp:" << qr.dist_z_projected << " a:" << qr.angle;
-
-                cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
-
-                // show the image
-                cv::imshow(OPENCV_WINDOW, cv_ptr->image);
-
-                // save the image!!!
-                tmpss.str(string());
-                tmpss.clear();
-                tmpss << "./images/qr_image_" << symbol_counter << '_';
-                tmpss << ros_time;
-                tmpss << ".jpg";
-
-                try {
-                    cv::imwrite(tmpss.str(), cv_ptr->image);
-                    cout << "Saved image file as " << tmpss.str() << '\n';
-                }
-                catch (const std::runtime_error &ex) {
-                    cout << "Exception saving image : " << ex.what() << '\n';
-                }
-
-                cv::waitKey(3);
+                createQRImage(&qr, &symbol_counter, &ros_time);
             }
         }
     }
@@ -617,8 +566,60 @@ public:
 
     void scan_flip(const std_msgs::Empty empty) {
         c.wall_mode ^= true;
+        // now flip the camera topic !
+        switchCamera(c.wall_mode);
         cout << "new scan mode selected : " << (c.wall_mode ? "wall" : "floor") << endl;
     }
+
+    void switchCamera(bool wallMode) {
+        subImage.shutdown();
+        subImage = imageTransport.subscribe(cameraWallTopic[wallMode], 1, &QrRadar::imageCb, this);
+    }
+
+    void createQRImage(ddata *qr, int *symbol_count, uint32_t *ros_time) {
+        // draw lines on image through the center in both x and y
+        cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255));
+        cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
+
+        // draw a box around the DETECTED Qr-Code (!!)
+        cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
+        cv::line(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
+        cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[1].x, qrLoc[1].y), CV_RGB(0, 0, 0));
+        cv::line(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), cvPoint(qrLoc[3].x, qrLoc[3].y), CV_RGB(0, 0, 0));
+
+        cv::circle(cv_ptr->image, cvPoint(qrLoc[0].x, qrLoc[0].y), 3, CV_RGB(255, 255, 255));
+        cv::circle(cv_ptr->image, cvPoint(qrLoc[1].x, qrLoc[1].y), 3, CV_RGB(255, 255, 255));
+        cv::circle(cv_ptr->image, cvPoint(qrLoc[2].x, qrLoc[2].y), 3, CV_RGB(255, 255, 255));
+        cv::circle(cv_ptr->image, cvPoint(qrLoc[3].x, qrLoc[3].y), 3, CV_RGB(255, 255, 255));
+
+        ostringstream tmpss;
+
+        tmpss << "d:" << qr->dist_z << " dp:" << qr->dist_z_projected << " a:" << qr->angle;
+
+        cv::putText(cv_ptr->image, tmpss.str(), cvPoint(cv_ptr->image.cols >> 2, cv_ptr->image.rows >> 2), 1, 1, CV_RGB(255, 255, 255));
+
+        // show the image
+        cv::imshow(OPENCV_WINDOW, cv_ptr->image);
+
+        // save the image!!!
+        tmpss.str(string());
+        tmpss.clear();
+        tmpss << "./images/qr_image_" << *symbol_count << '_';
+        tmpss << *ros_time;
+        tmpss << ".jpg";
+
+        try {
+            cv::imwrite(tmpss.str(), cv_ptr->image);
+            cout << "Saved image file as " << tmpss.str() << '\n';
+        }
+        catch (const std::runtime_error &ex) {
+            cout << "Exception saving image : " << ex.what() << '\n';
+        }
+
+        cv::waitKey(3);
+    }
+
+
 };
 
 #endif //QR_RADAR2_QRRADAR_H
