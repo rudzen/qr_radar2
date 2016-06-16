@@ -120,8 +120,6 @@ private:
 
     int control;                                                    /*!< Control integer */
 
-    cv_bridge::CvImagePtr cv_ptr;
-
     Calculator c;
 
 public:
@@ -221,6 +219,7 @@ public:
         // create a copy of the image recieved.
         /*
          */
+        cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
         }
@@ -230,14 +229,14 @@ public:
         }
 
         // testing distance with bigger image + equalizeHist + sharpening
-        cv::Mat dest;
-        cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
-        cv::equalizeHist(dest, cv_ptr->image);
+        cv::Mat dest = cv::Mat(cv_ptr->image.rows, cv_ptr->image.cols, cv_ptr->image.type());
+        //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
         cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
+        cv::equalizeHist(dest, cv_ptr->image);
 
         //ip.imadjust(cv_ptr->image, dest);
-        cv_ptr->image = dest.clone();
+        //cv_ptr->image = dest.clone();
         dest.release();
 
         // configure scanning area
@@ -348,7 +347,7 @@ public:
             }
 
             // info output
-            cout << "Starting letter       : " << qr_string.at(0) << '\n';
+            cout << "Text                  : " << qr_string << '\n';
             cout << "Image rect            : " << img_dim << '\n';
             cout << "QR rect               : " << qr_rect << '\n';
             cout << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
@@ -377,7 +376,7 @@ public:
             }
 
             if (shouldDisplayDebugWindow) {
-                createQRImage(&qr, &symbol_counter, &ros_time);
+                createQRImage(cv_ptr, &qr, &symbol_counter, &ros_time);
             }
         }
     }
@@ -574,7 +573,7 @@ public:
         subImage = imageTransport.subscribe(cameraWallTopic[wallMode], 1, &QrRadar::imageCb, this);
     }
 
-    void createQRImage(ddata *qr, int *symbol_count, uint32_t *ros_time) {
+    void createQRImage( cv_bridge::CvImagePtr cv_ptr,ddata *qr, int *symbol_count, uint32_t *ros_time) {
         // draw lines on image through the center in both x and y
         cv::line(cv_ptr->image, cvPoint(0, cv_ptr->image.rows >> 1), cvPoint(cv_ptr->image.cols, cv_ptr->image.rows >> 1), CV_RGB(255, 255, 255));
         cv::line(cv_ptr->image, cvPoint(cv_ptr->image.cols >> 1, 0), cvPoint(cv_ptr->image.cols >> 1, cv_ptr->image.rows), CV_RGB(255, 255, 255));
