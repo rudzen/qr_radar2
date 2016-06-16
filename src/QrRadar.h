@@ -233,6 +233,9 @@ public:
         cv::Mat dest;
         cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
         cv::equalizeHist(dest, cv_ptr->image);
+        cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
+        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
+
         //ip.imadjust(cv_ptr->image, dest);
         //cv_ptr->image = dest.clone();
         dest.release();
