@@ -35,11 +35,18 @@
 
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
+#define rad2deg(a) a * 180 / M_PI
 
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
 
+    struct room {
+        v3<float> dimensions = v3<float>(960, 1075, 340);
+    } room040;
+
 private:
+
+    room * r = &room040;
 
     const uint64_t numerator = (1LL << 32) / 1000000;
 
@@ -56,33 +63,34 @@ private:
     const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
     // room size
-    v3<float> room = v3<float>(960, 1075, 340);
-    const float north_south_interval = room.y / 6; // 5 codes each wall, so 6 spaces.
-    const float east_west_interval = room.x / 6;
+    const float north_south_interval = r->dimensions.y / 6; // 5 codes each wall, so 6 spaces.
+    const float east_west_interval = r->dimensions.x / 6;
 
 public:
-    const v3<float> &getRoom() const {
-        return room;
-    }
 
-    const double getWallBehind(char *c, double * __restrict__ forward_distance) {
+    const double getBackWallDistance(char *c, double *__restrict__ forward_distance) {
         switch (*c) {
-            case 0:
-            case 2:
-                return *forward_distance - room.y;
-            case 1:
-            case 3:
-                return *forward_distance - room.x;
-            default:break;
+            case '0':
+            case '2':
+                return *forward_distance - r->dimensions.y;
+            case '1':
+            case '3':
+                return *forward_distance - r->dimensions.x;
+            default:
+                return 0;
         }
     }
 
-    float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset) {
+    const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset) {
         return qr_wall_dist[*qr_text].first + (float) *qr_offset;
     }
 
-    float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset) {
+    const float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset) {
         return qr_wall_dist[*qr_text].second + (float) *qr_offset;
+    }
+
+    const float getCeilingDistance(double * __restrict__ distance_to_floor) {
+        return r->dimensions.z - (float) *distance_to_floor;
     }
 
 private:
@@ -154,14 +162,14 @@ public:
         const double a = w / h;
         if (a > 1 || a < -1) return 0;
         // convert from radians to degrees :
-        return acos(a) * 180 / M_PI;
+        return rad2deg(acos(a));
     }
 
     double angle_a(double *__restrict__ h, double *__restrict__ w) {
         const double a = *w / *h;
         if (a > 1 || a < -1) return 0;
         // convert from radians to degrees :
-        return acos(a) * 180 / M_PI;
+        return rad2deg(acos(a));
     }
 
     double dist_qr_projected(double h, double w, double dist, int modifier) {
@@ -182,7 +190,7 @@ public:
         const double a = w / h;
         if (a > 1 || a < -1) return dist;
         // convert from radians to degrees :
-        const double A = acos(a);// * 180 / M_PI;
+        const double A = acos(a);
         return cos(A) * dist;
     }
 

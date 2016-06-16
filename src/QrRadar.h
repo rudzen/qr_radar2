@@ -360,9 +360,13 @@ public:
             cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
             cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
             cout << "------------------------\n";
-            cout << "Dist. to wall behind : " << c.getWallBehind(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
-            cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
-            cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
+            if (c.wall_mode) {
+                cout << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
+                cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
+                cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
+            } else {
+                cout << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
+            }
             cout << endl;
 
             if (pubQR.getNumSubscribers() > 0) {
@@ -375,10 +379,13 @@ public:
                 streamQR << qr;
 
                 // additional calculations done ONLY FOR THIS PARTICULAR CONTEST!!
-                streamQR << pubSeperator << c.getWallBehind(&qr_string.at(2), &qr.dist_z_cam_wall);
-                streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
-                streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
-
+                if (c.wall_mode) {
+                    streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
+                    streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
+                    streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
+                } else {
+                    streamQR << pubSeperator << c.getCeilingDistance(&qr.dist_z_cam_wall);
+                }
 
                 /* publish the qr code information */
                 msg_qr_.data = streamQR.str();
