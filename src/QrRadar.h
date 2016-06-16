@@ -229,7 +229,7 @@ public:
             return;
         }
 
-        // testing distance with bigger image
+        // testing distance with bigger image + equalizeHist + sharpening
         cv::Mat dest;
         cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
         cv::equalizeHist(dest, cv_ptr->image);
@@ -237,16 +237,11 @@ public:
         cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
 
         //ip.imadjust(cv_ptr->image, dest);
-        //cv_ptr->image = dest.clone();
+        cv_ptr->image = dest.clone();
         dest.release();
-
 
         // configure scanning area
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
-
-        // simple whitebalance test
-        //Calculator::balance_white(cv_ptr->image);
-        // meh
 
         /* configure image based on available data */
         zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
