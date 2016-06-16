@@ -133,11 +133,10 @@ private:
 
 public:
 
-
-
     bool wall_mode; // default is wall_mode
 
     Calculator() {
+        set_qr_distances();
         wall_mode = true;
     }
 
