@@ -72,8 +72,8 @@ class QrRadar {
 
 private:
 
-    //const string topicFrontCamera = "/usb_cam/image_raw";
-    const string topicFrontCamera = "/ardrone/front/image_raw";
+    const string topicFrontCamera = "/usb_cam/image_raw";
+    //const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
@@ -174,8 +174,6 @@ public:
         pubQR = nhQR.advertise<std_msgs::String>(nhQR.getNamespace(), 1);
         pubCollision = nhCollision.advertise<std_msgs::String>("wall", 1);
         pubScanCount = nhQR.advertise<std_msgs::String>("count", 1);
-
-        c.set_qr_distances();
 
         cout << "Initialized.." << endl;
 
@@ -361,6 +359,10 @@ public:
             cout << "angular a   (deg)     : " << qr.angle << '\n';
             cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
             cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
+            cout << "------------------------\n";
+            cout << "Dist. to wall behind : " << c.getWallBehind(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
+            cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
+            cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
             cout << endl;
 
             if (pubQR.getNumSubscribers() > 0) {
@@ -371,6 +373,12 @@ public:
                 streamQR << offsets.x << pubSeperator;
                 streamQR << offsets.y << pubSeperator;
                 streamQR << qr;
+
+                // additional calculations done ONLY FOR THIS PARTICULAR CONTEST!!
+                streamQR << pubSeperator << c.getWallBehind(&qr_string.at(2), &qr.dist_z_cam_wall);
+                streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
+                streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
+
 
                 /* publish the qr code information */
                 msg_qr_.data = streamQR.str();

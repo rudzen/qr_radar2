@@ -55,32 +55,77 @@ private:
     const float focal_front = d_big * Z / D_big; // focal width for front camera
     const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
 
-    const float qr_seperation_cm = 10.0f;
+    // room size
+    v3<float> room = v3<float>(960, 1075, 340);
+    const float north_south_interval = room.y / 6; // 5 codes each wall, so 6 spaces.
+    const float east_west_interval = room.x / 6;
 
-    typedef pair<int, int> qr_code;
+public:
+    const v3<float> &getRoom() const {
+        return room;
+    }
 
-    typedef pair<float, float> wall_distances;
-    map<qr_code, wall_distances> qr_wall_dist;
-    map<float, string> qr_distance;
+    const double getWallBehind(char *c, double * __restrict__ forward_distance) {
+        switch (*c) {
+            case 0:
+            case 2:
+                return *forward_distance - room.y;
+            case 1:
+            case 3:
+                return *forward_distance - room.x;
+            default:break;
+        }
+    }
 
+    float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset) {
+        return qr_wall_dist[*qr_text].first + (float) *qr_offset;
+    }
 
+    float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset) {
+        return qr_wall_dist[*qr_text].second + (float) *qr_offset;
+    }
+
+private:
+    typedef pair<float, float> wall_distance;
+    map<string, wall_distance> qr_wall_dist;
+
+    void set_qr_distances() {
+
+        // unrolled loops (for speed!!!)
+
+        // "N" (white boards)
+        qr_wall_dist["W00.00"] = wall_distance(north_south_interval, north_south_interval * 5);
+        qr_wall_dist["W00.01"] = wall_distance(north_south_interval * 2, north_south_interval * 4);
+        qr_wall_dist["W00.02"] = wall_distance(north_south_interval * 3, north_south_interval * 3);
+        qr_wall_dist["W00.03"] = wall_distance(north_south_interval * 4, north_south_interval * 2);
+        qr_wall_dist["W00.04"] = wall_distance(north_south_interval * 5, north_south_interval);
+
+        // S
+        qr_wall_dist["W02.00"] = qr_wall_dist["W00.00"]; //wall_distance(north_south_interval, north_south_interval * 5);
+        qr_wall_dist["W02.01"] = qr_wall_dist["W00.01"]; //wall_distance(north_south_interval * 2, north_south_interval * 4);
+        qr_wall_dist["W02.02"] = qr_wall_dist["W00.02"]; //wall_distance(north_south_interval * 3, north_south_interval * 3);
+        qr_wall_dist["W02.03"] = qr_wall_dist["W00.03"]; //wall_distance(north_south_interval * 4, north_south_interval * 2);
+        qr_wall_dist["W02.04"] = qr_wall_dist["W00.04"]; //wall_distance(north_south_interval * 5, north_south_interval);
+
+        // E
+        qr_wall_dist["W01.00"] = wall_distance(east_west_interval, east_west_interval * 5);
+        qr_wall_dist["W01.01"] = wall_distance(east_west_interval * 2, east_west_interval * 4);
+        qr_wall_dist["W01.02"] = wall_distance(east_west_interval * 3, east_west_interval * 3);
+        qr_wall_dist["W01.03"] = wall_distance(east_west_interval * 4, east_west_interval * 2);
+        qr_wall_dist["W01.04"] = wall_distance(east_west_interval * 5, east_west_interval);
+
+        // W
+        qr_wall_dist["W03.00"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval, east_west_interval * 5);
+        qr_wall_dist["W03.01"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 2, east_west_interval * 4);
+        qr_wall_dist["W03.02"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 3, east_west_interval * 3);
+        qr_wall_dist["W03.03"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 4, east_west_interval * 2);
+        qr_wall_dist["W03.04"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 5, east_west_interval);
+
+    }
 
 public:
 
-    void set_qr_distances() {
-        qr_distance[0] = 100.;
-        qr_distance[2] = qr_distance[0];
-        qr_distance[1] = 105.;
-        qr_distance[3] = qr_distance[1];
 
-        const float wall_lenght = 500;
-        for (int i = 0; i < 5; ++i) {
-            for (int j = 0; j < 5; ++j) {
-                qr_wall_dist[qr_code(i, j)] = wall_distances(-wall_lenght - ((i + 1) * qr_seperation_cm), wall_lenght - (j + 1) * qr_seperation_cm);
-                cout << i << ':' << 'j' << '>' << qr_wall_dist[qr_code(i, j)].first << " - " << qr_wall_dist[qr_code(i, j)].second << '\n';
-            }
-        }
-    }
 
     bool wall_mode; // default is wall_mode
 
@@ -172,13 +217,7 @@ public:
         return (int) round(*cm / (wall_mode ? D_big : D_floor));
     }
 
-    double getLeftWallDistance(string *qr_text) {
 
-    }
-
-    double getRightWallDistance() {
-
-    }
 
 
 
