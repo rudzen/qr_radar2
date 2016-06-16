@@ -235,7 +235,7 @@ public:
         cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, cv_ptr->image);
         cv::equalizeHist(cv_ptr->image, dest);
         cv::bilateralFilter(dest, cv_ptr->image, 1, 1, 1);
-        dest.release();
+        //dest.release();
 
         // configure scanning area
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
