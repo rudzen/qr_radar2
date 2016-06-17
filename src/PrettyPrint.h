@@ -39,7 +39,6 @@
 #include <cctype>
 #include <locale>
 
-
 /**
  * Simple class to print out stuff to console that looks nice!
  * @author rudz

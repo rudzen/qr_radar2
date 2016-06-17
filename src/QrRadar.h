@@ -105,7 +105,7 @@ private:
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
     boost::unordered_map<std::string, ros::Time> qr_memory_;        /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
 #pragma clang diagnostic pop
-    zbar::ImageScanner imageScanner;                                /*!< The scanner object which scans for QR-code(s) in a given image */
+
 
     ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
     ros::Publisher pubCollision;                                    /*!< Publisher for potential collision with wall detection by QR-code distance */
@@ -126,6 +126,10 @@ private:
     Calculator c;
 
     map<char, bool> enabled_qr_codes;
+
+    /* set up zbar objects */
+    zbar::ImageScanner imageScanner;
+    zbar::Image zImage;
 
 public:
 
@@ -175,6 +179,8 @@ public:
         // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
         imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
+        imageScanner.enable_cache(true);
+        zImage.set_format("Y800"); // or GRAY
 
         // subscribe to input video feed and control / throttle topics etc
         subImage = imageTransport.subscribe(topicFrontCamera, 1, &QrRadar::imageCb, this);
@@ -268,12 +274,15 @@ public:
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
 
         /* configure image based on available data */
-        zbar::Image zbar_image((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
+
+        zImage.set_size((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows);
+        zImage.set_data(cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
+        // zImage((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
         ros_time_end = ros::Time::now().nsec;
 
         /* scan the image for QR codes */
-        const int scans = imageScanner.scan(zbar_image);
+        const int scans = imageScanner.scan(zImage);
 
         // publish amount of QR codes located.
         if (pubScanCount.getNumSubscribers() > 0) {
@@ -289,7 +298,7 @@ public:
         int symbol_counter = 0; // for control unit
 
         /* iterate over located symbols to fetch the data */
-        for (zbar::Image::SymbolIterator symbol = zbar_image.symbol_begin(); symbol != zbar_image.symbol_end(); ++symbol) {
+        for (zbar::Image::SymbolIterator symbol = zImage.symbol_begin(); symbol != zImage.symbol_end(); ++symbol) {
 
             if (symbol->get_location_size() != MAX_VECTOR_SIZE) {
                 cout << "FATAL READ ERROR FOR QR-CODE!" << endl;
@@ -427,7 +436,6 @@ public:
             }
             cout << "Time for scan/calc/show of complete image (ms) = " << c.nanoToMili(ros_time_end - ros_time) << '\n';
         }
-
 
     }
 
