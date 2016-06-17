@@ -392,7 +392,7 @@ public:
                     streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
                     streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
                     streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
-                    pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr);
+                    pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
                     streamQR << pubSeperator << room_coords.first;
                     streamQR << pubSeperator << room_coords.second;
                 } else {

@@ -28,6 +28,7 @@
 #ifndef QR_RADAR2_DATA_H
 #define QR_RADAR2_DATA_H
 
+#include "Calculator.h"
 #include "QrRadar.h"
 
 template<class T>

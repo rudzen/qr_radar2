@@ -32,7 +32,6 @@
 #include "Vec.h"
 #include "Rectangle.h"
 #include "ControlHeaders.h"
-#include "Data.h"
 
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
@@ -62,62 +61,6 @@ private:
 
     const float focal_front = d_big * Z / D_big; // focal width for front camera
     const float focal_buttom = d_floor * Z / D_floor; // focal width for buttom camera
-
-    // room size
-    const float north_south_interval = r->dimensions.y / 6; // 5 codes each wall, so 6 spaces.
-    const float east_west_interval = r->dimensions.x / 6;
-
-public:
-
-    const double getBackWallDistance(char *c, double *__restrict__ forward_distance) {
-        switch (*c) {
-            case '0':
-            case '2':
-                return *forward_distance - r->dimensions.y;
-            case '1':
-            case '3':
-                return *forward_distance - r->dimensions.x;
-            default:
-                return 0;
-        }
-    }
-
-    const pair<double, double> getCoordinatePosition(string * __restrict__ qr_text, ddata * __restrict__ qrdata) {
-        qr_coords coords = qr_pos[*qr_text];
-        int x = qr_pos[*qr_text].first;
-        int y = qr_pos[*qr_text].second;
-
-        switch (qr_text->at(2)) {
-            case '0':
-            case '2':
-                y -= qrdata->dist_z;
-                x -= qrdata->dist_z_projected;
-                break;
-            case '1':
-            case '3':
-                y -= qrdata->dist_z_projected;
-                x -= qrdata->dist_z;
-                break;
-            default:
-                x = 0;
-                y = 0;
-        }
-        return pair<double, double>(x, y);
-    }
-
-    const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset) {
-        return qr_wall_dist[*qr_text].first + (float) *qr_offset;
-    }
-
-    const float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset) {
-        return qr_wall_dist[*qr_text].second + (float) *qr_offset;
-    }
-
-    const float getCeilingDistance(double * __restrict__ distance_to_floor) {
-        return r->dimensions.z - (float) *distance_to_floor;
-    }
-
-private:
 
     typedef pair<float, float> wall_distance;
     map<string, wall_distance> qr_wall_dist;
@@ -166,13 +109,15 @@ private:
                     case '3':
                         qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, r->dimensions.y - iterator->second.second);
                     default:break;
-                    // this is *not* good :-)
+                        // this is *not* good :-)
                 }
             }
         }
     }
 
 public:
+
+
 
     bool wall_mode; // default is wall_mode
 
@@ -186,6 +131,61 @@ public:
         set_qr_pos();
         set_qr_distances();
     }
+
+    const double getBackWallDistance(char *c, double *__restrict__ forward_distance) {
+        switch (*c) {
+            case '0':
+            case '2':
+                return abs(*forward_distance - r->dimensions.y);
+            case '1':
+            case '3':
+                return abs(*forward_distance - r->dimensions.x);
+            default:
+                return 0;
+        }
+    }
+
+    const pair<double, double> getCoordinatePosition(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+        qr_coords coords = qr_pos[*qr_text];
+        int x = qr_pos[*qr_text].first;
+        int y = qr_pos[*qr_text].second;
+
+        switch (qr_text->at(2)) {
+            case '0':
+            case '2':
+                y -= *dist_z;
+                x -= *dist_z_projected;
+                break;
+            case '1':
+            case '3':
+                y -= *dist_z_projected;
+                x -= *dist_z;
+                break;
+            default:
+                x = 0;
+                y = 0;
+        }
+        return pair<double, double>(x, y);
+    }
+
+    const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset, double * __restrict__ angle) {
+        if (*angle < 0.01 || *angle > -0.01) {
+            return qr_wall_dist[*qr_text].first;
+        }
+        return qr_wall_dist[*qr_text].first + (float) *qr_offset;
+    }
+
+    const float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset, double * __restrict__ angle) {
+        if (*angle < 0.01 || *angle > -0.01) {
+            return qr_wall_dist[*qr_text].first;
+        }
+        return qr_wall_dist[*qr_text].second + (float) *qr_offset;
+    }
+
+    const float getCeilingDistance(double * __restrict__ distance_to_floor) {
+        return r->dimensions.z - (float) *distance_to_floor;
+    }
+
 
 // Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
