@@ -182,7 +182,10 @@ public:
         wall_mode = true;
     }
 
-    Calculator(bool wall_mode) : wall_mode(wall_mode) { }
+    Calculator(bool wall_mode) : wall_mode(wall_mode) {
+        set_qr_pos();
+        set_qr_distances();
+    }
 
 // Function: Routine to get Distance between two points
     // Description: Given 2 points, the function returns the distance
