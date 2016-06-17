@@ -32,6 +32,7 @@
 #include "Vec.h"
 #include "Rectangle.h"
 #include "ControlHeaders.h"
+#include "Data.h"
 
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
@@ -41,7 +42,7 @@
 class Calculator {
 
     struct room {
-        v3<float> dimensions = v3<float>(960, 1075, 340);
+        v3<float> dimensions = v3<float>(963, 1078, 340);
     } room040;
 
 private:
@@ -81,6 +82,29 @@ public:
         }
     }
 
+    const pair<double, double> getCoordinatePosition(string * __restrict__ qr_text, ddata * __restrict__ qrdata) {
+        qr_coords coords = qr_pos[*qr_text];
+        int x = qr_pos[*qr_text].first;
+        int y = qr_pos[*qr_text].second;
+
+        switch (qr_text->at(2)) {
+            case '0':
+            case '2':
+                y -= qrdata->dist_z;
+                x -= qrdata->dist_z_projected;
+                break;
+            case '1':
+            case '3':
+                y -= qrdata->dist_z_projected;
+                x -= qrdata->dist_z;
+                break;
+            default:
+                x = 0;
+                y = 0;
+        }
+        return pair<double, double>(x, y);
+    }
+
     const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset) {
         return qr_wall_dist[*qr_text].first + (float) *qr_offset;
     }
@@ -94,41 +118,58 @@ public:
     }
 
 private:
+
     typedef pair<float, float> wall_distance;
     map<string, wall_distance> qr_wall_dist;
 
+    typedef pair<int, int> qr_coords;
+    map<string, qr_coords> qr_pos;
+
+    // Function: Maps the qr code positions
+    void set_qr_pos() {
+        qr_pos["W00.00"] = qr_coords(188,1055);
+        qr_pos["W00.01"] = qr_coords(338,1060);
+        qr_pos["W00.02"] = qr_coords(515,1055);
+        qr_pos["W00.03"] = qr_coords(694,1060);
+        qr_pos["W00.04"] = qr_coords(840,1055);
+        qr_pos["W01.00"] = qr_coords(926,904);
+        qr_pos["W01.01"] = qr_coords(926,721);
+        qr_pos["W01.02"] = qr_coords(926,566);
+        qr_pos["W01.03"] = qr_coords(926,324);
+        qr_pos["W01.04"] = qr_coords(926,115);
+        //qr_pos["W02.00"] = qr_coords(847,-10);
+        //qr_pos["W02.01"] = qr_coords(656,-77);
+        qr_pos["W02.00"] = qr_coords(847, 0); // muahaha.. zeroed!
+        qr_pos["W02.01"] = qr_coords(656, 0);
+        qr_pos["W02.02"] = qr_coords(514,0);
+        qr_pos["W02.03"] = qr_coords(328,0);
+        qr_pos["W02.04"] = qr_coords(143,0);
+        qr_pos["W03.00"] = qr_coords(0,108);
+        qr_pos["W03.01"] = qr_coords(0,357);
+        qr_pos["W03.02"] = qr_coords(0,561);
+        qr_pos["W03.03"] = qr_coords(0,740);
+        qr_pos["W03.04"] = qr_coords(0,997);
+    }
+
+    // Function: Maps the qr positions to wall distances for LEFT and RIGHT
     void set_qr_distances() {
 
-        // unrolled loops (for speed!!!)
-
-        // "N" (white boards)
-        qr_wall_dist["W00.00"] = wall_distance(north_south_interval, north_south_interval * 5);
-        qr_wall_dist["W00.01"] = wall_distance(north_south_interval * 2, north_south_interval * 4);
-        qr_wall_dist["W00.02"] = wall_distance(north_south_interval * 3, north_south_interval * 3);
-        qr_wall_dist["W00.03"] = wall_distance(north_south_interval * 4, north_south_interval * 2);
-        qr_wall_dist["W00.04"] = wall_distance(north_south_interval * 5, north_south_interval);
-
-        // S
-        qr_wall_dist["W02.00"] = qr_wall_dist["W00.00"]; //wall_distance(north_south_interval, north_south_interval * 5);
-        qr_wall_dist["W02.01"] = qr_wall_dist["W00.01"]; //wall_distance(north_south_interval * 2, north_south_interval * 4);
-        qr_wall_dist["W02.02"] = qr_wall_dist["W00.02"]; //wall_distance(north_south_interval * 3, north_south_interval * 3);
-        qr_wall_dist["W02.03"] = qr_wall_dist["W00.03"]; //wall_distance(north_south_interval * 4, north_south_interval * 2);
-        qr_wall_dist["W02.04"] = qr_wall_dist["W00.04"]; //wall_distance(north_south_interval * 5, north_south_interval);
-
-        // E
-        qr_wall_dist["W01.00"] = wall_distance(east_west_interval, east_west_interval * 5);
-        qr_wall_dist["W01.01"] = wall_distance(east_west_interval * 2, east_west_interval * 4);
-        qr_wall_dist["W01.02"] = wall_distance(east_west_interval * 3, east_west_interval * 3);
-        qr_wall_dist["W01.03"] = wall_distance(east_west_interval * 4, east_west_interval * 2);
-        qr_wall_dist["W01.04"] = wall_distance(east_west_interval * 5, east_west_interval);
-
-        // W
-        qr_wall_dist["W03.00"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval, east_west_interval * 5);
-        qr_wall_dist["W03.01"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 2, east_west_interval * 4);
-        qr_wall_dist["W03.02"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 3, east_west_interval * 3);
-        qr_wall_dist["W03.03"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 4, east_west_interval * 2);
-        qr_wall_dist["W03.04"] = qr_wall_dist["W01.00"]; //wall_distance(east_west_interval * 5, east_west_interval);
-
+        typedef map<std::string, qr_coords>::iterator it_type;
+        for(it_type iterator = qr_pos.begin(); iterator != qr_pos.end(); ++iterator) {
+            if (iterator->first.length() > 2) {
+                switch (iterator->first.at(2)) {
+                    case '0':
+                    case '2':
+                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, r->dimensions.x - iterator->second.first);
+                        break;
+                    case '1':
+                    case '3':
+                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, r->dimensions.y - iterator->second.second);
+                    default:break;
+                    // this is *not* good :-)
+                }
+            }
+        }
     }
 
 public:
@@ -136,6 +177,7 @@ public:
     bool wall_mode; // default is wall_mode
 
     Calculator() {
+        set_qr_pos();
         set_qr_distances();
         wall_mode = true;
     }
@@ -325,10 +367,6 @@ public:
         }
         return ret;
     }
-
-
-
-
 };
 
 #endif //QR_RADAR2_CALCULATOR_H

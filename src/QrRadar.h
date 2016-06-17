@@ -72,8 +72,8 @@ class QrRadar {
 
 private:
 
-    const string topicFrontCamera = "/usb_cam/image_raw";
-    //const string topicFrontCamera = "/ardrone/front/image_raw";
+    //const string topicFrontCamera = "/usb_cam/image_raw";
+    const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
@@ -127,6 +127,15 @@ public:
 
     QrRadar() : imageTransport(nhQR) {
 
+        if (!cv::useOptimized()) {
+            cv::setUseOptimized(true);
+        }
+
+        cv::setNumThreads(4); // let opencv use 4 threads for processing stuff.
+
+        // set window (debug) for scanning
+        cv::namedWindow(OPENCV_WINDOW);
+
         /* configure camera mapping */
         cameraWallTopic[true] = topicFrontCamera;
         cameraWallTopic[false] = topicButtomCamera;
@@ -136,11 +145,9 @@ public:
         nhThrottle = ros::NodeHandle(nhQR, "throttle");
         nhDisplay = ros::NodeHandle(nhQR, "display");
         nhCollision = ros::NodeHandle(nhQR, "/collision");
-        // set window (debug) for scanning
-        cv::namedWindow(OPENCV_WINDOW);
         int i = system("clear");
         if (i != 0) {
-            cout << "Error while calling 'clear'\n";
+            cout << "Error while calling system command clear" << endl;
         }
         PrettyPrint pp(VERSION);
         pp.show_menu();
@@ -235,9 +242,11 @@ public:
         // testing distance with bigger image + equalizeHist + sharpening
         cv::Mat dest = cv::Mat(cv_ptr->image.rows, cv_ptr->image.cols, cv_ptr->image.type());
         //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
+
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
         cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
         cv::equalizeHist(dest, cv_ptr->image);
+
         //cv::bilateralFilter(dest, cv_ptr->image, 5, 1, 2);
         //cv_ptr->image = dest.clone();
         //dest.release();
@@ -383,6 +392,9 @@ public:
                     streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
                     streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
                     streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
+                    pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr);
+                    streamQR << pubSeperator << room_coords.first;
+                    streamQR << pubSeperator << room_coords.second;
                 } else {
                     streamQR << pubSeperator << c.getCeilingDistance(&qr.dist_z_cam_wall);
                 }
