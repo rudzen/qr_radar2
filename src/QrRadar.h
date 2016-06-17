@@ -609,10 +609,15 @@ public:
         if (msg.data.length() == 1) {
             stringstream ss(msg.data);
             string item;
-            vector<char> enabled;
+            // disable all
+            enabled_qr_codes['0'] = false;
+            enabled_qr_codes['1'] = false;
+            enabled_qr_codes['2'] = false;
+            enabled_qr_codes['3'] = false;
             while (getline(ss, item, ' ')) {
-                enabled_qr_codes[item.at(0)] = enabled_qr_codes.count(item.at(0)) != 0;
+                enabled_qr_codes[item.at(0)] = true;
             }
+
             // just for debugging
             typedef map<char, bool>::iterator it_type;
             for(it_type iterator = enabled_qr_codes.begin(); iterator != enabled_qr_codes.end(); ++iterator) {
