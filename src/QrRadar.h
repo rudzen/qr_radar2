@@ -303,12 +303,6 @@ public:
             string qr_string = symbol->get_data();
 
 
-            /* PTAM does NOT work well with glass walls, so those are skipped */
-            if (!enabled_qr_codes[qr_string.at(2)]) {
-                continue;
-            }
-
-
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
                 if (!qr_memory_.empty() && qr_memory_.count(qr_string) > 0) {
@@ -401,7 +395,8 @@ public:
             }
             cout << endl;
 
-            if (pubQR.getNumSubscribers() > 0) {
+            /* If anyone is listening .... AND ... PTAM does NOT work well with glass walls, so those are skipped */
+            if (pubQR.getNumSubscribers() > 0 && enabled_qr_codes[qr_string.at(2)]) {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << ros_time << pubSeperator;
