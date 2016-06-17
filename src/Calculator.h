@@ -36,6 +36,7 @@
 #define smallest(a, b) (a < b ? a : b)
 #define largest(a, b) (a < b ? b : a)
 #define rad2deg(a) a * 180 / M_PI
+#define between(a, b) a < b || a > -b
 
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
@@ -136,10 +137,10 @@ public:
         switch (*c) {
             case '0':
             case '2':
-                return abs(*forward_distance - r->dimensions.y);
+                return round(abs(*forward_distance - r->dimensions.y));
             case '1':
             case '3':
-                return abs(*forward_distance - r->dimensions.x);
+                return round(abs(*forward_distance - r->dimensions.x));
             default:
                 return 0;
         }
@@ -165,18 +166,31 @@ public:
                 x = 0;
                 y = 0;
         }
-        return pair<double, double>(x, y);
+        return pair<double, double>(abs(x), abs(y));
     }
 
     const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset, double * __restrict__ angle) {
-        if (*angle < 0.01 || *angle > -0.01) {
-            return qr_wall_dist[*qr_text].first;
+        switch (qr_text->at(2)) {
+            case '0':
+            case '2':
+                if (*angle == 0) {
+                    return r->dimensions.x - qr_wall_dist[*qr_text].first;
+                }
+                return r->dimensions.y - qr_wall_dist[*qr_text].second - (float) *qr_offset;
+            case '1':
+            case '3':
+                if (*angle == 0) {
+                    return r->dimensions.x - qr_wall_dist[*qr_text].first;
+                }
+                return r->dimensions.x - qr_wall_dist[*qr_text].first - (float) *qr_offset;
+            default:
+                return -1;
+                break;
         }
-        return qr_wall_dist[*qr_text].first + (float) *qr_offset;
     }
 
     const float getRightWallDistance(string *qr_text, double * __restrict__ qr_offset, double * __restrict__ angle) {
-        if (*angle < 0.01 || *angle > -0.01) {
+        if (*angle == 0) {
             return qr_wall_dist[*qr_text].first;
         }
         return qr_wall_dist[*qr_text].second + (float) *qr_offset;

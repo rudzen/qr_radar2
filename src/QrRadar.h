@@ -83,6 +83,7 @@ private:
 
     ros::NodeHandle nhQR = ros::NodeHandle("/qr");                  /*!< The nodehandler for the topics */
     ros::NodeHandle nhScan;
+    ros::NodeHandle nhScanSetWall;
     ros::NodeHandle nhThrottle;
     ros::NodeHandle nhDisplay;
     ros::NodeHandle nhCollision;
@@ -97,6 +98,7 @@ private:
     ros::Subscriber subScanDisable;                                 /*!< Subscription object to disable scanning of incomming images */
     ros::Subscriber subScanWall;                                    /*!< Subscription for switching between wall and floor mode.*/
     ros::Subscriber subScanSet;                                     /*!< Subscription object to enable / disable scanning of incomming images */
+    ros::Subscriber subScanSetWall;                                 /*!< Subscription object to enable / disable specific walls */
     ros::Subscriber subKaffe;                                       /*!< Subscription object to make coffeeeeeeeeee!!!! */
 
 #pragma clang diagnostic push
@@ -123,6 +125,8 @@ private:
 
     Calculator c;
 
+    map<char, bool> enabled_qr_codes;
+
 public:
 
     QrRadar() : imageTransport(nhQR) {
@@ -136,12 +140,19 @@ public:
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
 
+        /* configure default dis-/enabled qr_codes */
+        enabled_qr_codes['0'] = true;
+        enabled_qr_codes['1'] = false;
+        enabled_qr_codes['2'] = true;
+        enabled_qr_codes['3'] = false;
+
         /* configure camera mapping */
         cameraWallTopic[true] = topicFrontCamera;
         cameraWallTopic[false] = topicButtomCamera;
 
         /* configure nodehandle sub namespaces */
         nhScan = ros::NodeHandle(nhQR, "scan");
+        nhScanSetWall = ros::NodeHandle(nhScan, "set/wall");
         nhThrottle = ros::NodeHandle(nhQR, "throttle");
         nhDisplay = ros::NodeHandle(nhQR, "display");
         nhCollision = ros::NodeHandle(nhQR, "/collision");
@@ -175,6 +186,7 @@ public:
         subScanTopic = nhScan.subscribe("topic", 1, &QrRadar::topic_set, this);
         subScanWall = nhScan.subscribe("mode", 1, &QrRadar::scan_flip, this);
         subScanSet = nhScan.subscribe("set", 1, &QrRadar::scan_set, this);
+        subScanSet = nhScan.subscribe("set/wall", 1, &QrRadar::scan_set_wall, this);
         subKaffe = nhQR.subscribe("kaffe", 1, &QrRadar::kaffe, this);
 
         // Set publishers
@@ -203,6 +215,7 @@ public:
         subScanDisable.shutdown();
         subScanWall.shutdown();
         subScanSet.shutdown();
+        subScanSetWall.shutdown();
         subDisplaySet.shutdown();
         subKaffe.shutdown();
         streamQR.str(std::string());
@@ -289,6 +302,13 @@ public:
             /* grab the text from the symbol */
             string qr_string = symbol->get_data();
 
+
+            /* PTAM does NOT work well with glass walls, so those are skipped */
+            if (!enabled_qr_codes[qr_string.at(2)]) {
+                continue;
+            }
+
+
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
                 if (!qr_memory_.empty() && qr_memory_.count(qr_string) > 0) {
@@ -355,6 +375,8 @@ public:
                 pubCollision.publish(msg_collision);
             }
 
+            pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+
             // info output
             cout << "Text                  : " << qr_string << '\n';
             cout << "Image rect            : " << img_dim << '\n';
@@ -371,8 +393,9 @@ public:
             cout << "------------------------\n";
             if (c.wall_mode) {
                 cout << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
-                cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
-                cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected) << '\n';
+                cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
+                cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
+                cout << "Room coord (x,y)  : " << pubSeperator << room_coords.first << ',' << room_coords.second;
             } else {
                 cout << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
             }
@@ -390,9 +413,9 @@ public:
                 // additional calculations done ONLY FOR THIS PARTICULAR CONTEST!!
                 if (c.wall_mode) {
                     streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
-                    streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected);
-                    streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected);
-                    pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+                    streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle);
+                    streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle);
+                    //pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
                     streamQR << pubSeperator << room_coords.first;
                     streamQR << pubSeperator << room_coords.second;
                 } else {
@@ -580,6 +603,24 @@ public:
         } else {
             cout << "value already set : " << isScanEnabled << endl;
         }
+    }
+
+    void scan_set_wall(const std_msgs::String msg) {
+        if (msg.data.length() == 1) {
+            stringstream ss(msg.data);
+            string item;
+            vector<char> enabled;
+            while (getline(ss, item, ' ')) {
+                enabled_qr_codes[item.at(0)] = enabled_qr_codes.count(item.at(0)) != 0;
+            }
+            // just for debugging
+            typedef map<char, bool>::iterator it_type;
+            for(it_type iterator = enabled_qr_codes.begin(); iterator != enabled_qr_codes.end(); ++iterator) {
+                cout << "wall " << iterator->first << " set to " << iterator->second;
+            }
+            return;
+        }
+        cout << "invalid string sent to /qr/scan/wall/set" << endl;
     }
 
     /*! \brief Set image topic
