@@ -79,7 +79,7 @@ private:
 
     std::map<bool, string> cameraWallTopic;
 
-    bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
+    bool shouldDisplayDebugWindow = false;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
     float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
     int control;                                                    /*!< Control integer */
@@ -218,6 +218,10 @@ public:
 
     ~QrRadar() {
         // attempt to clean up nicely..
+        t_printer->interrupt();
+        t_qrpub->interrupt();
+        t_printer->join();
+        t_qrpub->join();
         cv::destroyWindow(OPENCV_WINDOW);
         pubQR.shutdown();
         pubCollision.shutdown();
@@ -234,8 +238,8 @@ public:
         subScanSetWall.shutdown();
         subDisplaySet.shutdown();
         subKaffe.shutdown();
-        //streamQR.str(std::string());
-        //streamQR.clear();
+        streamQR.str(std::string());
+        streamQR.clear();
     }
 
     /*! \brief Image callback function
@@ -253,7 +257,6 @@ public:
         /* get the ros time to append to each publish so they can be syncronized from subscription side */
         uint32_t ros_time_end;
         uint32_t ros_time = ros::Time::now().nsec;
-
 
         // share the image
         //cv_bridge::CvImageConstPtr cv_ptr;
@@ -464,7 +467,7 @@ public:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
     void printer() {
-        while (1) {
+        while (!t_printer->interruption_requested()) {
             cout << QrRadar::print_queue.pop() << endl;
         }
     }
@@ -473,7 +476,7 @@ public:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
     void qr_publisher() {
-        while (1) {
+        while (!t_qrpub->interruption_requested()) {
             QrRadar::msg_qr_.data = QrRadar::qr_queue.pop();
             pubQR.publish(QrRadar::msg_qr_);
         }
