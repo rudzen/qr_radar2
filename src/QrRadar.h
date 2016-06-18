@@ -287,7 +287,6 @@ public:
         intrect img_dim = Calculator::get_img_dim(&control, cv_ptr->image.cols, cv_ptr->image.rows);
 
         /* configure image based on available data */
-
         zImage.set_size((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows);
         zImage.set_data(cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
         // zImage((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
@@ -418,7 +417,7 @@ public:
                 streamQR << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
                 streamQR << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
                 streamQR << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
-                streamQR << "Room coord (x,y)  : " << pubSeperator << qr.room_coords;
+                streamQR << "Room coord (x,y)  : " << pubSeperator << qr.room_coords << '\n';
             } else {
                 streamQR << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
             }
