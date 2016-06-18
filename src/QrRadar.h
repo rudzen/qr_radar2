@@ -218,10 +218,8 @@ public:
 
     ~QrRadar() {
         // attempt to clean up nicely..
-        t_printer->interrupt();
-        t_qrpub->interrupt();
-        t_printer->join();
-        t_qrpub->join();
+        delete t_printer;
+        delete t_qrpub;
         cv::destroyWindow(OPENCV_WINDOW);
         pubQR.shutdown();
         pubCollision.shutdown();
