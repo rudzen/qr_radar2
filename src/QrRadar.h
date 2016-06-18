@@ -41,16 +41,17 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <zbar.h>
 #include "boost/unordered_map.hpp"
 #include <vector>
 #include <string>
+#include <zbar.h>
 
 #include "ControlHeaders.h"
 #include "Calculator.h"
 #include "Rectangle.h"
 #include "Data.h"
 #include "PrettyPrint.h"
+#include "Q.h"
 
 using namespace std;
 
@@ -80,6 +81,8 @@ private:
 
     bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
+    float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
+    int control;                                                    /*!< Control integer */
 
     ros::NodeHandle nhQR = ros::NodeHandle("/qr");                  /*!< The nodehandler for the topics */
     ros::NodeHandle nhScan;
@@ -103,7 +106,7 @@ private:
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "TemplateArgumentsIssues"
-    boost::unordered_map<std::string, ros::Time> qr_memory_;        /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
+    boost::unordered_map<std::string, ros::Time> qr_memory;        /*!< Map to keep track of which qr-codes has been sent during the defined throttle interval */
 #pragma clang diagnostic pop
 
 
@@ -111,7 +114,6 @@ private:
     ros::Publisher pubCollision;                                    /*!< Publisher for potential collision with wall detection by QR-code distance */
     ros::Publisher pubScanCount;                                    /*!< Publisher for no detection of QR-codes in scanned image */
 
-    float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
 
     std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
     std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
@@ -120,16 +122,19 @@ private:
 
     ostringstream streamQR;                                         /*!< Output stringstream for gathering the information which is to be published */
     vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
-
-    int control;                                                    /*!< Control integer */
-
     Calculator c;
-
     map<char, bool> enabled_qr_codes;
 
     /* set up zbar objects */
+
     zbar::ImageScanner imageScanner;
     zbar::Image zImage;
+
+    Queue<string> print_queue;
+    Queue<string> qr_queue;
+
+    boost::thread* t_printer;
+    boost::thread* t_qrpub;
 
 public:
 
@@ -143,6 +148,11 @@ public:
 
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
+
+        /* configure automated threads */
+
+        t_printer = new boost::thread(boost::bind(&QrRadar::printer, this));
+        t_qrpub = new boost::thread(boost::bind(&QrRadar::qr_publisher, this));
 
         /* configure default dis-/enabled qr_codes */
         enabled_qr_codes['0'] = true;
@@ -179,7 +189,7 @@ public:
         // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
         imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
         imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
-        imageScanner.enable_cache(true);
+        imageScanner.enable_cache(false);
         zImage.set_format("Y800"); // or GRAY
 
         // subscribe to input video feed and control / throttle topics etc
@@ -224,8 +234,8 @@ public:
         subScanSetWall.shutdown();
         subDisplaySet.shutdown();
         subKaffe.shutdown();
-        streamQR.str(std::string());
-        streamQR.clear();
+        //streamQR.str(std::string());
+        //streamQR.clear();
     }
 
     /*! \brief Image callback function
@@ -311,21 +321,20 @@ public:
             /* grab the text from the symbol */
             string qr_string = symbol->get_data();
 
-
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
-                if (!qr_memory_.empty() && qr_memory_.count(qr_string) > 0) {
+                if (!qr_memory.empty() && qr_memory.count(qr_string) > 0) {
                     // verify throttle timer to erase it from memory
-                    if (ros::Time::now() > qr_memory_.at(qr_string)) {
-                        cout << "Throttle timeout reached, removing data from memory." << endl;;
-                        qr_memory_.erase(qr_string);
+                    if (ros::Time::now() > qr_memory.at(qr_string)) {
+                        cout << "Throttle timeout reached, removing data from memory." << '\n';;
+                        qr_memory.erase(qr_string);
                     } else {
                         // timeout was not reached, just move along the found symbols
                         continue;
                     }
                 }
                 // save the qr code in memory and define new timer for it's erasure
-                qr_memory_.insert(make_pair(qr_string, ros::Time::now() + ros::Duration(throttle_)));
+                qr_memory.insert(make_pair(qr_string, ros::Time::now() + ros::Duration(throttle_)));
             }
 
             // ****** QR META STUFF *********
@@ -338,10 +347,12 @@ public:
 
             // set dimension for qr (using widest dimensions !!)
             intrect qr_rect(smallest(qrLoc[0].x, qrLoc[1].x), smallest(qrLoc[0].y, qrLoc[2].y), largest(qrLoc[2].x, qrLoc[3].x), largest(qrLoc[1].y, qrLoc[2].y));
+            /*
             if (qr_rect > img_dim) {
                 cout << "qr code dimensions are not within controller settings.." << endl;
                 return;
             }
+             */
 
             v2<int> qr_c; // this is the main center point from where all calculations are taking place!
 
@@ -358,60 +369,65 @@ public:
 
             /* check if the qr is in a valid position */
             // currently not used...
-
             //if (controlbreak(qr_c, img_c) == TRUE) {
             //    cout << "Qr-control blocked processing.. symbol " << symbol_counter << '/' << scans << ".. code : " << control << endl;
             //    continue;
             //}
 
-            v2<double> offsets((qr_c.x - img_c.x) * c.pix_to_cm(((qrLoc[3].x - qrLoc[0].x) + (qrLoc[2].x - qrLoc[1].x)) >> 1), (qr_c.y - img_c.y) * c.pix_to_cm(((qrLoc[1].y - qrLoc[0].y) + (qrLoc[2].y - qrLoc[3].y)) >> 1));
+            int width_top = qrLoc[3].x - qrLoc[0].x;
+            int width_bottom = qrLoc[2].x - qrLoc[1].x;
+            int height_left = qrLoc[1].y - qrLoc[0].y;
+            int height_right = qrLoc[2].y - qrLoc[3].y;
 
             // populate the data class, this will automaticly calculate the needed bits and bobs
-            ddata qr(qrLoc[3].x - qrLoc[0].x, qrLoc[2].x - qrLoc[1].x, qrLoc[1].y - qrLoc[0].y, qrLoc[2].y - qrLoc[3].y, c);
+            ddata qr(width_top, width_bottom, height_left, height_right, c);
+
+            qr.offsets.x = (qr_c.x - img_c.x) * c.pix_to_cm((width_top + width_bottom) >> 1);
+            qr.offsets.y = (qr_c.y - img_c.y) * c.pix_to_cm((height_left + height_right) >> 1);
 
             // publish collision warning right away!
-            if (pubCollision.getNumSubscribers() > 0 && qr_string.at(0) == 'W' && qr.dist_z_cam_wall <= 150) {
+            if (pubCollision.getNumSubscribers() > 0 && c.wall_mode && qr.dist_z_cam_wall <= 150 && qr_string.at(0) == 'W') {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << qr.dist_z_cam_wall;
                 msg_collision.data = streamQR.str();
                 pubCollision.publish(msg_collision);
             }
+            qr.room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
 
-            pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
-
+            streamQR.str(string());
+            streamQR.clear();
             // info output
-            cout << "Text                  : " << qr_string << '\n';
-            cout << "Image rect            : " << img_dim << '\n';
-            cout << "QR rect               : " << qr_rect << '\n';
-            cout << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
+            streamQR << "Text                  : " << qr_string << '\n';
+            streamQR << "Image rect            : " << img_dim << '\n';
+            streamQR << "QR rect               : " << qr_rect << '\n';
+            streamQR << "Symbol # / total      : " << symbol_counter << '/' << scans << '\n';
             //cout << "c2c          (pix)    : " << distance_c2c << '\n';
-            cout << "smallest dist (cm)    : " << qr.dist_z << '\n';
+            streamQR << "smallest dist (cm)    : " << qr.dist_z << '\n';
             //cout << "cm offset c2c(cm)     : " << cm_real << '\n';
-            cout << "off.hori     (cm)     : " << offsets.x << '\n';
-            cout << "off.vert     (cm)     : " << offsets.y << '\n';
-            cout << "angular a   (deg)     : " << qr.angle << '\n';
-            cout << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
-            cout << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
-            cout << "------------------------\n";
+            streamQR << "off.hori     (cm)     : " << qr.offsets.x << '\n';
+            streamQR << "off.vert     (cm)     : " << qr.offsets.y << '\n';
+            streamQR << "angular a   (deg)     : " << qr.angle << '\n';
+            streamQR << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
+            streamQR << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
+            streamQR << "------------------------\n";
             if (c.wall_mode) {
-                cout << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
-                cout << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
-                cout << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
-                cout << "Room coord (x,y)  : " << pubSeperator << room_coords.first << ',' << room_coords.second;
+                streamQR << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
+                streamQR << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
+                streamQR << "Dist. to DRONE-RIGHT wall : " << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
+                streamQR << "Room coord (x,y)  : " << pubSeperator << qr.room_coords;
             } else {
-                cout << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
+                streamQR << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
             }
-            cout << endl;
+            print_queue.push(streamQR.str());
+            //cout << endl;
 
             /* If anyone is listening .... AND ... PTAM does NOT work well with glass walls, so those are skipped */
-            if (pubQR.getNumSubscribers() > 0 && enabled_qr_codes[qr_string.at(2)]) {
+            if (pubQR.getNumSubscribers() > 0) {//} && enabled_qr_codes[qr_string.at(2)]) {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << ros_time << pubSeperator;
                 streamQR << qr_string << pubSeperator;
-                streamQR << offsets.x << pubSeperator;
-                streamQR << offsets.y << pubSeperator;
                 streamQR << qr;
 
                 // additional calculations done ONLY FOR THIS PARTICULAR CONTEST!!
@@ -419,25 +435,55 @@ public:
                     streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
                     streamQR << pubSeperator << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle);
                     streamQR << pubSeperator << c.getRightWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle);
-                    //pair<double, double> room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
-                    streamQR << pubSeperator << room_coords.first;
-                    streamQR << pubSeperator << room_coords.second;
+                    streamQR << pubSeperator << qr.room_coords.x;
+                    streamQR << pubSeperator << qr.room_coords.y;
                 } else {
                     streamQR << pubSeperator << c.getCeilingDistance(&qr.dist_z_cam_wall);
+                    streamQR << pubSeperator << '0';
+                    streamQR << pubSeperator << '0';
+                    streamQR << pubSeperator << '0';
+                    streamQR << pubSeperator << '0';
                 }
 
                 /* publish the qr code information */
-                msg_qr_.data = streamQR.str();
-                pubQR.publish(msg_qr_);
+                qr_queue.push(streamQR.str());
+                //msg_qr_.data = streamQR.str();
+                //pubQR.publish(msg_qr_);
             }
 
             if (shouldDisplayDebugWindow) {
                 createQRImage(cv_ptr, &qr, &symbol_counter, &ros_time);
             }
+
             cout << "Time for scan/calc/show of complete image (ms) = " << c.nanoToMili(ros_time_end - ros_time) << '\n';
         }
 
+        imageScanner.recycle_image(zImage);
     }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    void printer() {
+        while (1) {
+            cout << QrRadar::print_queue.pop() << endl;
+        }
+    }
+#pragma clang diagnostic pop
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    void qr_publisher() {
+        while (1) {
+            QrRadar::msg_qr_.data = QrRadar::qr_queue.pop();
+            pubQR.publish(QrRadar::msg_qr_);
+        }
+    }
+#pragma clang diagnostic pop
+
+    bool throttleCheck(string *qr_string) {
+
+    }
+
 
     /*! \brief Checks if control setting is in effect
     *
@@ -497,13 +543,13 @@ public:
         cout << "throttle command recieved.. ";
         if (msg.data > 0.0) {
             if (msg.data == throttle_) {
-                cout << "but was un-altered : " << throttle_ << endl;
+                cout << "but was un-altered : " << throttle_ << '\n';
             } else {
                 throttle_ = msg.data;
-                cout << " new value is : " << throttle_ << endl;
+                cout << " new value is : " << throttle_ << '\n';
             }
         } else {
-            cout << "invalid value : " << throttle_ << endl;
+            cout << "invalid value : " << throttle_ << '\n';
         }
     }
 
@@ -566,16 +612,16 @@ public:
         cout << "display_set command recieved... ";
         if (msg.data != shouldDisplayDebugWindow) {
             shouldDisplayDebugWindow = msg.data;
-            cout << "new value : " << shouldDisplayDebugWindow << endl;
+            cout << "new value : " << shouldDisplayDebugWindow << '\n';
         } else {
-            cout << "value already set : " << shouldDisplayDebugWindow << endl;
+            cout << "value already set : " << shouldDisplayDebugWindow << '\n';
         }
     }
 
     void display_flip(const std_msgs::Empty msg) {
         shouldDisplayDebugWindow ^= true;
         true;
-        cout << "image display configured to : o" << (shouldDisplayDebugWindow ? "n" : "ff") << endl;
+        cout << "image display configured to : o" << (shouldDisplayDebugWindow ? "n" : "ff") << '\n';
     }
 
     void kaffe(const std_msgs::Empty msg) {
@@ -602,9 +648,9 @@ public:
         cout << "scan_set command recieved... ";
         if (msg.data != isScanEnabled) {
             isScanEnabled = msg.data;
-            cout << "new value : " << isScanEnabled << endl;
+            cout << "new value : " << isScanEnabled << '\n';
         } else {
-            cout << "value already set : " << isScanEnabled << endl;
+            cout << "value already set : " << isScanEnabled << '\n';
         }
     }
 
@@ -628,7 +674,7 @@ public:
             }
             return;
         }
-        cout << "invalid string sent to /qr/scan/wall/set" << endl;
+        cout << "invalid string sent to /qr/scan/wall/set" << '\n';
     }
 
     /*! \brief Set image topic
@@ -636,17 +682,17 @@ public:
     * Disables current image subscription and enables parsed topic.
     */
     void topic_set(const std_msgs::String::ConstPtr msg) {
-        cout << "scan enabled.." << endl;
         isScanEnabled = true;
         subImage.shutdown();
         subImage = imageTransport.subscribe(msg->data.c_str(), 1, &QrRadar::imageCb, this);
+        cout << "scan enabled.. topic set to : " << msg->data.c_str() << '\n';
     }
 
     void scan_flip(const std_msgs::Empty empty) {
         c.wall_mode ^= true;
         // now flip the camera topic !
         switchCamera(c.wall_mode);
-        cout << "new scan mode selected : " << (c.wall_mode ? "wall" : "floor") << endl;
+        cout << "new scan mode selected : " << (c.wall_mode ? "wall" : "floor") << '\n';
     }
 
     void switchCamera(bool wallMode) {

@@ -40,7 +40,7 @@ typedef rect<int> intrect;
 
 template<class T>
 ostream &operator<<(ostream &stream, rect<T> r) {
-    cout << '[' << r.left << ',' << r.right << ',' << r.top << ',' << r.bottom << ']';
+    stream << '[' << r.left << ',' << r.right << ',' << r.top << ',' << r.bottom << ']';
     return stream;
 }
 

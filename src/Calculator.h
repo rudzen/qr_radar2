@@ -146,10 +146,10 @@ public:
         }
     }
 
-    const pair<double, double> getCoordinatePosition(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+    const v2<double> getCoordinatePosition(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
         qr_coords coords = qr_pos[*qr_text];
-        int x = qr_pos[*qr_text].first;
-        int y = qr_pos[*qr_text].second;
+        int x = coords.first;
+        int y = coords.second;
 
         switch (qr_text->at(2)) {
             case '0':
@@ -166,7 +166,7 @@ public:
                 x = 0;
                 y = 0;
         }
-        return pair<double, double>(abs(x), abs(y));
+        return v2<double>(abs(x), abs(y));
     }
 
     const float getLeftWallDistance(string *qr_text, double * __restrict__ qr_offset, double * __restrict__ angle) {

@@ -145,7 +145,7 @@ public:
 
 template<class T>
 ostream &operator<<(ostream &stream, v2<T> v) {
-    cout << '[' << v.x << ',' << v.y << ']';
+    stream << '[' << v.x << ',' << v.y << ']';
     return stream;
 }
 
@@ -204,7 +204,7 @@ public:
 
 template<class T>
 ostream &operator<<(ostream &stream, v3<T> v) {
-    cout << '[' << v.x << ',' << v.y << ',' << v.z << ']';
+    stream << '[' << v.x << ',' << v.y << ',' << v.z << ']';
     return stream;
 }
 

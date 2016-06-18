@@ -35,16 +35,7 @@ template<class T>
 class data {
 
 public:
-    data() {
-        width = width_top = width_bottom = height = height_left = height_right = 0;
-    }
-
     virtual ~data() { }
-
-    data(T width, T width_top, T width_bottom, T height, T height_left, T height_right, Calculator &c) :
-            width(width), width_top(width_top), width_bottom(width_bottom), height(height), height_left(height_left), height_right(height_right) {
-        dist_z = smallest(c.distance_z_wall(&width), c.distance_z_wall(&height));
-    }
 
     data(T width_top, T width_bottom, T height_left, T height_right, Calculator &c) : width_top(width_top), width_bottom(width_bottom), height_left(height_left), height_right(height_right) {
         width = c.avg(&width_top, &width_bottom);
@@ -72,11 +63,15 @@ public:
     T angle;
     T dist_z_projected;
     T dist_z_cam_wall;
+
+    v2<T> offsets;
+    v2<T> room_coords;
+
 };
 
 template<class T>
 ostream &operator<<(ostream &stream, data<T> d) {
-    stream << d.dist_z << ' ' << d.angle << ' ' << d.dist_z_projected << ' ' << d.dist_z_cam_wall;
+    stream << d.offsets.x << ' ' << d.offsets.y << ' ' << d.dist_z << ' ' << d.angle << ' ' << d.dist_z_projected << ' ' << d.dist_z_cam_wall;
     return stream;
 }
 
