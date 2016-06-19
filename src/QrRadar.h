@@ -394,7 +394,7 @@ public:
             }
 
             // publish collision warning right away!
-            if (pubCollision.getNumSubscribers() > 0 && c.wall_mode && qr.dist_z_cam_wall <= 150 && qr_string.at(0) == 'W') {
+            if (pubCollision.getNumSubscribers() > 0 && c.wall_mode && qr.dist_z_cam_wall <= 200 && qr_string.at(0) == 'W') {
                 streamQR.str(string());
                 streamQR.clear();
                 streamQR << qr.dist_z_cam_wall;
