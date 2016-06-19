@@ -41,13 +41,9 @@
 // Class: Mini class wrapping for simple X,Y coordinates.
 class Calculator {
 
-    struct room {
-        v3<float> dimensions = v3<float>(963, 1078, 340);
-    } room040;
-
 private:
 
-    room * r = &room040;
+    v3<float> dimensions = v3<float>(963, 1078, 340);
 
     const uint64_t numerator = (1LL << 32) / 1000000;
 
@@ -104,11 +100,11 @@ private:
                 switch (iterator->first.at(2)) {
                     case '0':
                     case '2':
-                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, r->dimensions.x - iterator->second.first);
+                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, dimensions.x - iterator->second.first);
                         break;
                     case '1':
                     case '3':
-                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, r->dimensions.y - iterator->second.second);
+                        qr_wall_dist[iterator->first] = wall_distance(iterator->second.first, dimensions.y - iterator->second.second);
                     default:break;
                         // this is *not* good :-)
                 }
@@ -133,14 +129,78 @@ public:
         set_qr_distances();
     }
 
+    const double get00Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+        switch (qr_text->at(2)) {
+            case '0':
+                return *dist_z;
+            case '1':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '2':
+                return dimensions.y - *dist_z;
+            case '3':
+                return qr_pos[*qr_text].first + *dist_z_projected;
+            default:
+                return -1;
+        }
+    }
+
+    const double get02Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+        switch (qr_text->at(2)) {
+            case '0':
+                return dimensions.y - *dist_z;
+            case '1':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '2':
+                return *dist_z;
+            case '3':
+                return qr_pos[*qr_text].first + *dist_z_projected;
+            default:
+                return -1;
+        }
+    }
+
+    const double get01Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+        switch (qr_text->at(2)) {
+            case '0':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '1':
+                return *dist_z;
+            case '2':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '3':
+                return dimensions.y - *dist_z;
+            default:
+                return -1;
+        }
+    }
+
+    const double get03Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
+        switch (qr_text->at(2)) {
+            case '0':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '1':
+                return dimensions.y - *dist_z;
+            case '2':
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+            case '3':
+                return *dist_z;
+            default:
+                return -1;
+        }
+    }
+
+
+
+
+
     const double getBackWallDistance(char *c, double *__restrict__ forward_distance) {
         switch (*c) {
             case '0':
             case '2':
-                return round(abs(*forward_distance - r->dimensions.y));
+                return round(abs(*forward_distance - dimensions.y));
             case '1':
             case '3':
-                return round(abs(*forward_distance - r->dimensions.x));
+                return round(abs(*forward_distance - dimensions.x));
             default:
                 return 0;
         }
@@ -174,15 +234,15 @@ public:
             case '0':
             case '2':
                 if (*angle == 0) {
-                    return r->dimensions.x - qr_wall_dist[*qr_text].first;
+                    return dimensions.x - qr_wall_dist[*qr_text].first;
                 }
-                return r->dimensions.y - qr_wall_dist[*qr_text].second - (float) *qr_offset;
+                return dimensions.y - qr_wall_dist[*qr_text].second - (float) *qr_offset;
             case '1':
             case '3':
                 if (*angle == 0) {
-                    return r->dimensions.x - qr_wall_dist[*qr_text].first;
+                    return dimensions.x - qr_wall_dist[*qr_text].first;
                 }
-                return r->dimensions.x - qr_wall_dist[*qr_text].first - (float) *qr_offset;
+                return dimensions.x - qr_wall_dist[*qr_text].first - (float) *qr_offset;
             default:
                 return -1;
                 break;
@@ -197,7 +257,7 @@ public:
     }
 
     const float getCeilingDistance(double * __restrict__ distance_to_floor) {
-        return r->dimensions.z - (float) *distance_to_floor;
+        return dimensions.z - (float) *distance_to_floor;
     }
 
 

@@ -395,6 +395,11 @@ public:
             }
             qr.room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
 
+            qr.dist_wall_0 = c.get00Distance(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+            qr.dist_wall_1 = c.get01Distance(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+            qr.dist_wall_2 = c.get02Distance(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+            qr.dist_wall_3 = c.get03Distance(&qr_string, &qr.dist_z, &qr.dist_z_projected);
+
             streamQR.str(string());
             streamQR.clear();
             // info output
@@ -430,6 +435,7 @@ public:
                 streamQR << qr_string << pubSeperator;
                 streamQR << qr;
 
+                /*
                 // additional calculations done ONLY FOR THIS PARTICULAR CONTEST!!
                 if (c.wall_mode) {
                     streamQR << pubSeperator << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall);
@@ -444,6 +450,7 @@ public:
                     streamQR << pubSeperator << '0';
                     streamQR << pubSeperator << '0';
                 }
+                 */
 
                 /* publish the qr code information */
                 qr_queue.push(streamQR.str());
