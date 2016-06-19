@@ -73,8 +73,8 @@ class QrRadar {
 
 private:
 
-    const string topicFrontCamera = "/usb_cam/image_raw";
-    //const string topicFrontCamera = "/ardrone/front/image_raw";
+    //const string topicFrontCamera = "/usb_cam/image_raw";
+    const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
