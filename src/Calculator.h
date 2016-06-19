@@ -162,7 +162,7 @@ public:
     const double get01Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
         switch (qr_text->at(2)) {
             case '0':
-                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected);
+                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
             case '1':
                 return *dist_z;
             case '2':
