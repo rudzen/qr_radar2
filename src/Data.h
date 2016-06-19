@@ -77,7 +77,8 @@ public:
 template<class T>
 ostream &operator<<(ostream &stream, data<T> d) {
     stream << d.offsets.x << ' ' << d.offsets.y << ' ' << d.dist_z << ' ' << d.angle << ' ' << d.dist_z_projected << ' ' << d.dist_z_cam_wall;
-    stream << d.dist_wall_0 << ' ' << d.dist_wall_1 << ' ' << d.dist_wall_2 << ' ' << d.dist_wall_2 << ' ' << d.dist_wall_3;
+    stream << ' ' << d.room_coords.x << ' ' << d.room_coords.y;
+    stream << ' ' << d.dist_wall_0 << ' ' << d.dist_wall_1 << ' ' << d.dist_wall_2 << ' ' << d.dist_wall_2 << ' ' << d.dist_wall_3;
     return stream;
 }
 
