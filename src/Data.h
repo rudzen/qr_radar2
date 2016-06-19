@@ -46,9 +46,13 @@ public:
             dist_z = smallest(c.distance_z_floor(&width), c.distance_z_floor(&height));
         }
         angle = c.angle_a(&height, &width);
-        dist_z_projected = c.dist_qr_projected(&height, &width, &dist_z);
-        if (height_right >= height_left) {
-            dist_z_projected = -dist_z_projected;
+        if (angle == 0) {
+            dist_z_projected = 0;
+        } else {
+            dist_z_projected = c.dist_qr_projected(&height, &width, &dist_z);
+            if (height_right >= height_left) {
+                dist_z_projected = -dist_z_projected;
+            }
         }
         dist_z_cam_wall = c.dist_wall(height, width, dist_z);
     }
