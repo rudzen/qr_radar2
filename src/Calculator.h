@@ -77,10 +77,10 @@ private:
         qr_pos["W01.02"] = qr_coords(926,566);
         qr_pos["W01.03"] = qr_coords(926,324);
         qr_pos["W01.04"] = qr_coords(926,115);
-        //qr_pos["W02.00"] = qr_coords(847,-10);
-        //qr_pos["W02.01"] = qr_coords(656,-77);
-        qr_pos["W02.00"] = qr_coords(847, 0); // muahaha.. zeroed!
-        qr_pos["W02.01"] = qr_coords(656, 0);
+        qr_pos["W02.00"] = qr_coords(847,-10);
+        qr_pos["W02.01"] = qr_coords(656,-77);
+        //qr_pos["W02.00"] = qr_coords(847, 0); // muahaha.. zeroed!
+        //qr_pos["W02.01"] = qr_coords(656, 0);
         qr_pos["W02.02"] = qr_coords(514,0);
         qr_pos["W02.03"] = qr_coords(328,0);
         qr_pos["W02.04"] = qr_coords(143,0);
@@ -151,7 +151,8 @@ public:
             case '1':
                 return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
             case '2':
-                return *dist_z;
+                // some are < 0
+                return *dist_z - -qr_pos[*qr_text].second;
             case '3':
                 return qr_pos[*qr_text].first + *dist_z_projected;
             default:

@@ -136,6 +136,9 @@ private:
     boost::thread* t_printer;
     boost::thread* t_qrpub;
 
+    uint32_t globalcount = 0;
+    uint32_t globalfirst = ros::Time::now().nsec;
+
 public:
 
     QrRadar() : imageTransport(nhQR) {
@@ -385,6 +388,11 @@ public:
             qr.offsets.x = (qr_c.x - img_c.x) * c.pix_to_cm((width_top + width_bottom) >> 1);
             qr.offsets.y = (qr_c.y - img_c.y) * c.pix_to_cm((height_left + height_right) >> 1);
 
+            // if the angle is 0, set the dist_z_projected to x offset (makes it a bit more precise)
+            if (qr.angle == 0) {
+                qr.dist_z_projected = qr.offsets.x;
+            }
+
             // publish collision warning right away!
             if (pubCollision.getNumSubscribers() > 0 && c.wall_mode && qr.dist_z_cam_wall <= 150 && qr_string.at(0) == 'W') {
                 streamQR.str(string());
@@ -469,6 +477,11 @@ public:
                 createQRImage(cv_ptr, &qr, &symbol_counter, &ros_time);
             }
 
+            streamQR.str(string());
+            streamQR.clear();
+            streamQR << "Global QR-codes found :" << globalcount++ << " the last : " << c.nanoToMili(ros::Time::now().nsec - globalfirst);
+            print_queue.push(streamQR.str());
+
             cout << "Time for scan/calc/show of complete image (ms) = " << c.nanoToMili(ros_time_end - ros_time) << '\n';
         }
 
@@ -493,11 +506,6 @@ public:
         }
     }
 #pragma clang diagnostic pop
-
-    bool throttleCheck(string *qr_string) {
-
-    }
-
 
     /*! \brief Checks if control setting is in effect
     *
@@ -555,7 +563,7 @@ public:
     */
     void throttle_set(const std_msgs::Float32 msg) {
         cout << "throttle command recieved.. ";
-        if (msg.data > 0.0) {
+        if (msg.data >= 0.0) {
             if (msg.data == throttle_) {
                 cout << "but was un-altered : " << throttle_ << '\n';
             } else {
