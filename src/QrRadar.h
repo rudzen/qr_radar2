@@ -73,8 +73,8 @@ class QrRadar {
 
 private:
 
-    //const string topicFrontCamera = "/usb_cam/image_raw";
-    const string topicFrontCamera = "/ardrone/front/image_raw";
+    const string topicFrontCamera = "/usb_cam/image_raw";
+    //const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
@@ -415,7 +415,13 @@ public:
             streamQR << "angular a   (deg)     : " << qr.angle << '\n';
             streamQR << "dist qr projected (cm): " << qr.dist_z_projected << '\n';
             streamQR << "dist cam to wall (cm) : " << qr.dist_z_cam_wall << '\n';
+            streamQR << "0 wall dist           : " << qr.dist_wall_0 << '\n';
+            streamQR << "1 wall dist           : " << qr.dist_wall_1 << '\n';
+            streamQR << "2 wall dist           : " << qr.dist_wall_2 << '\n';
+            streamQR << "3 wall dist           : " << qr.dist_wall_3 << '\n';
             streamQR << "------------------------\n";
+
+            /*
             if (c.wall_mode) {
                 streamQR << "Dist. to wall behind : " << c.getBackWallDistance(&qr_string.at(2), &qr.dist_z_cam_wall) << '\n';
                 streamQR << "Dist. to DRONE-LEFT wall : " << c.getLeftWallDistance(&qr_string, &qr.dist_z_projected, &qr.angle) << '\n';
@@ -424,6 +430,7 @@ public:
             } else {
                 streamQR << "Dist. to ceiling :  " << c.getCeilingDistance(&qr.dist_z_cam_wall) << '\n';
             }
+            */
             print_queue.push(streamQR.str());
             //cout << endl;
 

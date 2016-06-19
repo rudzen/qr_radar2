@@ -138,7 +138,7 @@ public:
             case '2':
                 return dimensions.y - *dist_z;
             case '3':
-                return qr_pos[*qr_text].first + *dist_z_projected;
+                return qr_pos[*qr_text].first    + *dist_z_projected;
             default:
                 return -1;
         }
@@ -177,11 +177,11 @@ public:
     const double get03Distance(string * __restrict__ qr_text, double * __restrict__ dist_z, double * __restrict__ dist_z_projected) {
         switch (qr_text->at(2)) {
             case '0':
-                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+                return qr_pos[*qr_text].first + *dist_z_projected;
             case '1':
                 return dimensions.y - *dist_z;
             case '2':
-                return dimensions.x - qr_pos[*qr_text].first + *dist_z_projected;
+                return qr_pos[*qr_text].first + *dist_z_projected;
             case '3':
                 return *dist_z;
             default:
