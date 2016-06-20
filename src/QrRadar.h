@@ -232,7 +232,7 @@ public:
         subScanTopic = nhScan.subscribe("topic", 1, &QrRadar::topic_set, this);
         subScanWall = nhScan.subscribe("mode", 1, &QrRadar::scan_flip, this);
         subScanSet = nhScan.subscribe("set", 1, &QrRadar::scan_set, this);
-        subScanSet = nhScan.subscribe("set/wall", 1, &QrRadar::scan_set_wall, this);
+        subScanSetWall = nhScan.subscribe("set/wall", 1, &QrRadar::scan_set_wall, this);
         subKaffe = nhQR.subscribe("kaffe", 1, &QrRadar::kaffe, this);
 
         // Set publishers
