@@ -190,10 +190,6 @@ public:
         }
     }
 
-
-
-
-
     const double getBackWallDistance(char *c, double *__restrict__ forward_distance) {
         switch (*c) {
             case '0':

@@ -74,13 +74,18 @@ class QrRadar {
 
 private:
 
+    bool controlling = true;
+    bool left = false, right = false;
+
+    const string searcher = "rosservice call /ardrone/setflightanimation 7 450";
+
     //const string topicFrontCamera = "/usb_cam/image_raw";
     const string topicFrontCamera = "/ardrone/front/image_raw";
     const string topicButtomCamera = "/ardrone/bottom/image_raw";
 
     std::map<bool, string> cameraWallTopic;
 
-    bool shouldDisplayDebugWindow = false;                           /*!< Depending on the state, will display output window of scanned QR-code */
+    bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
     float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
     int control;                                                    /*!< Control integer */
@@ -117,7 +122,7 @@ private:
     ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
     ros::Publisher pubCollision;                                    /*!< Publisher for potential collision with wall detection by QR-code distance */
     ros::Publisher pubScanCount;                                    /*!< Publisher for no detection of QR-codes in scanned image */
-    ros::Publisher pubHover;
+    //ros::Publisher pubHover;
 
     std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
     std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
@@ -140,6 +145,7 @@ private:
 
     boost::thread* t_printer;
     boost::thread* t_qrpub;
+    //boost::thread* t_hover;
 
     uint32_t globalcount = 0;
     uint32_t globalfirst = ros::Time::now().nsec;
@@ -196,11 +202,8 @@ public:
         cameraWallTopic[false] = topicButtomCamera;
 
         cout << "done" << endl;
-        cout << "Configuring zbar and setting up threads.. ";
+        cout << "Configuring zbar.. ";
 
-        /* configure automated threads */
-        t_printer = new boost::thread(boost::bind(&QrRadar::printer, this));
-        t_qrpub = new boost::thread(boost::bind(&QrRadar::qr_publisher, this));
 
         // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
         imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
@@ -239,6 +242,11 @@ public:
 
         //pubHover = nhHover.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
+        /* configure automated threads */
+        t_printer = new boost::thread(boost::bind(&QrRadar::printer, this));
+        t_qrpub = new boost::thread(boost::bind(&QrRadar::qr_publisher, this));
+        //t_hover = new boost::thread(boost::bind(&QrRadar::hover_drone, this));
+
         cout << "done" << endl;
         cout << "Ready.." << endl;
     }
@@ -247,11 +255,12 @@ public:
         // attempt to clean up nicely..
         delete t_printer;
         delete t_qrpub;
+        //delete t_hover;
         cv::destroyWindow(OPENCV_WINDOW);
         pubQR.shutdown();
         pubCollision.shutdown();
         pubScanCount.shutdown();
-        pubHover.shutdown();
+        //pubHover.shutdown();
         subImage.shutdown();
         subThrottle.shutdown();
         //subControl.shutdown();
@@ -322,14 +331,45 @@ public:
 
         // publish amount of QR codes located.
         if (pubScanCount.getNumSubscribers() > 0) {
+            streamQR.str(string());
+            streamQR.clear();
             streamQR << ros_time << pubSeperator << scans;
             msg_scan_count.data = streamQR.str();
             pubScanCount.publish(msg_scan_count);
         }
 
+        /*
+        if (scans == 0 && controlling) {
+            if (!left && !right) {
+                ROS_INFO("Controlling mode active!");
+                right = true;
+            }
+            if (hover.angular.z < 20 && right) {
+                ROS_INFO("RIGHT angular += 1");
+                hover.angular.z += 1;
+                if (hover.angular.z >= 20) {
+                    ROS_INFO("X Angular reached 20+, switching to LEFT mode");
+                    right = false;
+                    left = true;
+                }
+            }
+            if (hover.angular.z > -20 && left) {
+                ROS_INFO("LEFT angular -= 1");
+                hover.angular.z -= 1;
+                if (hover.angular.z <= -20) {
+                    ROS_INFO("LEFT mode target reached, switching to RIGHT mode");
+                    right = true;
+                    left = false;
+                }
+            }
+            pubHover.publish(hover);
+            return;
+          */
         if (scans == 0) {
             return;
         }
+        //controlling = false;
+        //hover.angular.z = 0;
 
         int symbol_counter = 0; // for control unit
 
@@ -495,8 +535,6 @@ public:
 
                 /* publish the qr code information */
                 qr_queue.push(streamQR.str());
-                //msg_qr_.data = streamQR.str();
-                //pubQR.publish(msg_qr_);
             }
 
             if (shouldDisplayDebugWindow) {
@@ -514,7 +552,21 @@ public:
 
         imageScanner.recycle_image(zImage);
     }
-
+/*
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    void hover_drone() {
+        geometry_msgs::Twist t;
+        t.angular.x = t.angular.y = t.angular.z = 0;
+        t.linear.x = t.linear.y = t.linear.z = 0;
+        while (!t_hover->interruption_requested()) {
+            pubHover.publish(t);
+            boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
+            ROS_INFO("SPAMMING HOVER!!!");
+        }
+    }
+#pragma clang diagnostic pop
+*/
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
     void printer() {
