@@ -34,6 +34,7 @@
 #include "std_msgs/Float32.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Int8.h"
+#include "geometry_msgs/Twist.h"
 #include "ros/ros.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -90,6 +91,7 @@ private:
     ros::NodeHandle nhThrottle;
     ros::NodeHandle nhDisplay;
     ros::NodeHandle nhCollision;
+    ros::NodeHandle nhHover;
     image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
     image_transport::Subscriber subImage;                           /*!< The subscription object for the image topic */
     ros::Subscriber subThrottle;                                    /*!< Subscription object for setting the throttle */
@@ -113,12 +115,13 @@ private:
     ros::Publisher pubQR;                                           /*!< Publisher for the result(s) gathered from the QR-code */
     ros::Publisher pubCollision;                                    /*!< Publisher for potential collision with wall detection by QR-code distance */
     ros::Publisher pubScanCount;                                    /*!< Publisher for no detection of QR-codes in scanned image */
-
+    ros::Publisher pubHover;
 
     std_msgs::String msg_qr_;                                       /*!< String message object for publishing the result */
     std_msgs::String msg_control_;                                  /*!< String message for async feedback on the state of the throttle changes */
     std_msgs::String msg_collision;
     std_msgs::String msg_scan_count;
+    geometry_msgs::Twist hover; // test hover
 
     ostringstream streamQR;                                         /*!< Output stringstream for gathering the information which is to be published */
     vector<v2<int>> qrLoc;                                          /*!< vector that contains the location of all 4 QR-code corners from the scan */
@@ -173,6 +176,8 @@ public:
         nhThrottle = ros::NodeHandle(nhQR, "throttle");
         nhDisplay = ros::NodeHandle(nhQR, "display");
         nhCollision = ros::NodeHandle(nhQR, "/collision");
+        //nhHover = ros::NodeHandle("cmd_vel");
+
         int i = system("clear");
         if (i != 0) {
             cout << "Error while calling system command clear" << endl;
@@ -208,10 +213,19 @@ public:
         subScanSet = nhScan.subscribe("set/wall", 1, &QrRadar::scan_set_wall, this);
         subKaffe = nhQR.subscribe("kaffe", 1, &QrRadar::kaffe, this);
 
+
         // Set publishers
         pubQR = nhQR.advertise<std_msgs::String>(nhQR.getNamespace(), 1);
         pubCollision = nhCollision.advertise<std_msgs::String>("wall", 1);
         pubScanCount = nhQR.advertise<std_msgs::String>("count", 1);
+        pubHover = nhHover.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+
+        hover.angular.x = 0;
+        hover.angular.y = 0;
+        hover.angular.z = 0;
+        hover.linear.x = 0;
+        hover.linear.y = 0;
+        hover.linear.z = 0;
 
         cout << "Initialized.." << endl;
 
@@ -400,6 +414,7 @@ public:
                 streamQR << qr.dist_z_cam_wall;
                 msg_collision.data = streamQR.str();
                 pubCollision.publish(msg_collision);
+                system("rosservice call /ardrone/setledanimation 9 3 1");
             }
             qr.room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
 
@@ -503,6 +518,9 @@ public:
         while (!t_qrpub->interruption_requested()) {
             QrRadar::msg_qr_.data = QrRadar::qr_queue.pop();
             pubQR.publish(QrRadar::msg_qr_);
+            system("rosservice call /ardrone/setledanimation 3 3 1");
+            ROS_INFO("Attempting to hover..");
+            pubHover.publish(hover);
         }
     }
 #pragma clang diagnostic pop
