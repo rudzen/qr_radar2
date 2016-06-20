@@ -91,7 +91,9 @@ private:
     ros::NodeHandle nhThrottle;
     ros::NodeHandle nhDisplay;
     ros::NodeHandle nhCollision;
-    ros::NodeHandle nhHover;
+
+    //ros::NodeHandle nhHover;
+
     image_transport::ImageTransport imageTransport;                 /*!< Makes it possible to recieve messages in the form of an image */
     image_transport::Subscriber subImage;                           /*!< The subscription object for the image topic */
     ros::Subscriber subThrottle;                                    /*!< Subscription object for setting the throttle */
@@ -146,6 +148,14 @@ public:
 
     QrRadar() : imageTransport(nhQR) {
 
+        if (system("clear") != 0) {
+            cout << "Error while calling system command clear." << endl;
+        }
+        PrettyPrint pp(VERSION);
+        pp.show_menu();
+
+        cout << "Configuring opencv.. ";
+
         if (!cv::useOptimized()) {
             cv::setUseOptimized(true);
         }
@@ -155,10 +165,25 @@ public:
         // set window (debug) for scanning
         cv::namedWindow(OPENCV_WINDOW);
 
-        /* configure automated threads */
+        cout << "done" << endl;
+        cout << "Configuring default scan variables.. ";
 
-        t_printer = new boost::thread(boost::bind(&QrRadar::printer, this));
-        t_qrpub = new boost::thread(boost::bind(&QrRadar::qr_publisher, this));
+        // hover stuff.
+        hover.angular.x = 0;
+        hover.angular.y = 0;
+        hover.angular.z = 0;
+        hover.linear.x = 0;
+        hover.linear.y = 0;
+        hover.linear.z = 0;
+
+        // default control option
+        control = QR_CONTROL_ALL;
+
+        // reserve vector space
+        qrLoc.reserve(MAX_VECTOR_SIZE);
+
+        // interval between (in ros time) sending identical qr-code information, based on it's text
+        throttle_ = 2;
 
         /* configure default dis-/enabled qr_codes */
         enabled_qr_codes['0'] = true;
@@ -170,6 +195,22 @@ public:
         cameraWallTopic[true] = topicFrontCamera;
         cameraWallTopic[false] = topicButtomCamera;
 
+        cout << "done" << endl;
+        cout << "Configuring zbar and setting up threads.. ";
+
+        /* configure automated threads */
+        t_printer = new boost::thread(boost::bind(&QrRadar::printer, this));
+        t_qrpub = new boost::thread(boost::bind(&QrRadar::qr_publisher, this));
+
+        // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
+        imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
+        imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
+        imageScanner.enable_cache(false);
+        zImage.set_format("Y800"); // or GRAY
+
+        cout << "done" << endl;
+        cout << "Configuring ROS objects..";
+
         /* configure nodehandle sub namespaces */
         nhScan = ros::NodeHandle(nhQR, "scan");
         nhScanSetWall = ros::NodeHandle(nhScan, "set/wall");
@@ -177,28 +218,6 @@ public:
         nhDisplay = ros::NodeHandle(nhQR, "display");
         nhCollision = ros::NodeHandle(nhQR, "/collision");
         //nhHover = ros::NodeHandle("cmd_vel");
-
-        int i = system("clear");
-        if (i != 0) {
-            cout << "Error while calling system command clear" << endl;
-        }
-        PrettyPrint pp(VERSION);
-        pp.show_menu();
-
-        // default control option
-        control = QR_CONTROL_ALL;
-
-        // reserve vector space
-        qrLoc.reserve(MAX_VECTOR_SIZE);
-
-        // interval between (in ros time) sending identical qr-code information, based on it's text
-        throttle_ = 2;
-
-        // configure zbar scanner to only allow QR codes (speeds up scan quite a bit!)
-        imageScanner.set_config(zbar::ZBAR_NONE, zbar::ZBAR_CFG_ENABLE, 0);
-        imageScanner.set_config(zbar::ZBAR_QRCODE, zbar::ZBAR_CFG_ENABLE, 1);
-        imageScanner.enable_cache(false);
-        zImage.set_format("Y800"); // or GRAY
 
         // subscribe to input video feed and control / throttle topics etc
         subImage = imageTransport.subscribe(topicFrontCamera, 1, &QrRadar::imageCb, this);
@@ -213,24 +232,15 @@ public:
         subScanSet = nhScan.subscribe("set/wall", 1, &QrRadar::scan_set_wall, this);
         subKaffe = nhQR.subscribe("kaffe", 1, &QrRadar::kaffe, this);
 
-
         // Set publishers
         pubQR = nhQR.advertise<std_msgs::String>(nhQR.getNamespace(), 1);
         pubCollision = nhCollision.advertise<std_msgs::String>("wall", 1);
         pubScanCount = nhQR.advertise<std_msgs::String>("count", 1);
-        pubHover = nhHover.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
-        hover.angular.x = 0;
-        hover.angular.y = 0;
-        hover.angular.z = 0;
-        hover.linear.x = 0;
-        hover.linear.y = 0;
-        hover.linear.z = 0;
+        //pubHover = nhHover.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
-        cout << "Initialized.." << endl;
-
-        //graph.generate_map();
-        //cout << g << endl;
+        cout << "done" << endl;
+        cout << "Ready.." << endl;
     }
 
     ~QrRadar() {
@@ -241,6 +251,7 @@ public:
         pubQR.shutdown();
         pubCollision.shutdown();
         pubScanCount.shutdown();
+        pubHover.shutdown();
         subImage.shutdown();
         subThrottle.shutdown();
         //subControl.shutdown();
@@ -306,8 +317,6 @@ public:
         zImage.set_data(cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
         // zImage((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
-        ros_time_end = ros::Time::now().nsec;
-
         /* scan the image for QR codes */
         const int scans = imageScanner.scan(zImage);
 
@@ -343,7 +352,7 @@ public:
                 if (!qr_memory.empty() && qr_memory.count(qr_string) > 0) {
                     // verify throttle timer to erase it from memory
                     if (ros::Time::now() > qr_memory.at(qr_string)) {
-                        cout << "Throttle timeout reached, removing data from memory." << '\n';;
+                        ROS_INFO("Throttle timeout reached, removing data from memory.");
                         qr_memory.erase(qr_string);
                     } else {
                         // timeout was not reached, just move along the found symbols
@@ -414,7 +423,9 @@ public:
                 streamQR << qr.dist_z_cam_wall;
                 msg_collision.data = streamQR.str();
                 pubCollision.publish(msg_collision);
-                system("rosservice call /ardrone/setledanimation 9 3 1");
+                if (system("rosservice call /ardrone/setledanimation 9 3 1") != 0) {
+                    print_queue.push("Error while calling animation service");
+                }
             }
             qr.room_coords = c.getCoordinatePosition(&qr_string, &qr.dist_z, &qr.dist_z_projected);
 
@@ -494,7 +505,8 @@ public:
 
             streamQR.str(string());
             streamQR.clear();
-            streamQR << "Global QR-codes found :" << globalcount++ << " the last : " << c.nanoToMili(ros::Time::now().nsec - globalfirst);
+            ros_time_end = ros::Time::now().nsec;
+            streamQR << "Global QR-codes found :" << globalcount++ << " the last : " << c.nanoToMili(ros_time_end - globalfirst);
             print_queue.push(streamQR.str());
 
             cout << "Time for scan/calc/show of complete image (ms) = " << c.nanoToMili(ros_time_end - ros_time) << '\n';
@@ -518,9 +530,11 @@ public:
         while (!t_qrpub->interruption_requested()) {
             QrRadar::msg_qr_.data = QrRadar::qr_queue.pop();
             pubQR.publish(QrRadar::msg_qr_);
-            system("rosservice call /ardrone/setledanimation 3 3 1");
-            ROS_INFO("Attempting to hover..");
-            pubHover.publish(hover);
+            if (system("rosservice call /ardrone/setledanimation 3 3 1") != 0) {
+                print_queue.push("Error while calling animation service.");
+            }
+            //ROS_INFO("Attempting to hover..");
+            //pubHover.publish(hover);
         }
     }
 #pragma clang diagnostic pop
@@ -660,7 +674,6 @@ public:
 
     void display_flip(const std_msgs::Empty msg) {
         shouldDisplayDebugWindow ^= true;
-        true;
         cout << "image display configured to : o" << (shouldDisplayDebugWindow ? "n" : "ff") << '\n';
     }
 
