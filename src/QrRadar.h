@@ -311,8 +311,8 @@ public:
         //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
 
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
-        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
-        cv::equalizeHist(dest, cv_ptr->image);
+        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, cv_ptr->image);
+        //cv::equalizeHist(dest, cv_ptr->image);
 
         //cv::bilateralFilter(dest, cv_ptr->image, 5, 1, 2);
         //cv_ptr->image = dest.clone();
