@@ -387,6 +387,11 @@ public:
             /* grab the text from the symbol */
             string qr_string = symbol->get_data();
 
+            // guard for not reading airfields...
+            if (qr_string.at(0) == 'A') {
+                continue;
+            }
+
             /* determine if throttle is enabled, and deny duplicate publishing of same symbol info */
             if (throttle_ > 0.0) {
                 if (!qr_memory.empty() && qr_memory.count(qr_string) > 0) {
