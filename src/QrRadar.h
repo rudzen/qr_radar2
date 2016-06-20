@@ -85,7 +85,7 @@ private:
 
     std::map<bool, string> cameraWallTopic;
 
-    bool shouldDisplayDebugWindow = true;                           /*!< Depending on the state, will display output window of scanned QR-code */
+    bool shouldDisplayDebugWindow = false;                           /*!< Depending on the state, will display output window of scanned QR-code */
     bool isScanEnabled = true;                                      /*!< If set to false, any incomming images from the image topic will be ignored */
     float throttle_;                                                /*!<Control the rate to publish identical QR-codes */
     int control;                                                    /*!< Control integer */
@@ -311,8 +311,8 @@ public:
         //cv::resize(cv_ptr->image, dest, cvSize(cv_ptr->image.cols << 1, cv_ptr->image.rows << 1), 0, 0, CV_INTER_LINEAR);
 
         cv::GaussianBlur(cv_ptr->image, dest, cv::Size(0, 0), 3);
-        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, cv_ptr->image);
-        //cv::equalizeHist(dest, cv_ptr->image);
+        cv::addWeighted(cv_ptr->image, 1.5, dest, -0.5, 0, dest);
+        cv::equalizeHist(dest, cv_ptr->image);
 
         //cv::bilateralFilter(dest, cv_ptr->image, 5, 1, 2);
         //cv_ptr->image = dest.clone();
@@ -324,7 +324,6 @@ public:
         /* configure image based on available data */
         zImage.set_size((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows);
         zImage.set_data(cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
-        // zImage((unsigned int) cv_ptr->image.cols, (unsigned int) cv_ptr->image.rows, "Y800", cv_ptr->image.data, (unsigned long) (cv_ptr->image.cols * cv_ptr->image.rows));
 
         /* scan the image for QR codes */
         const int scans = imageScanner.scan(zImage);
@@ -418,6 +417,7 @@ public:
 
             // set dimension for qr (using widest dimensions !!)
             intrect qr_rect(smallest(qrLoc[0].x, qrLoc[1].x), smallest(qrLoc[0].y, qrLoc[2].y), largest(qrLoc[2].x, qrLoc[3].x), largest(qrLoc[1].y, qrLoc[2].y));
+
             /*
             if (qr_rect > img_dim) {
                 cout << "qr code dimensions are not within controller settings.." << endl;
