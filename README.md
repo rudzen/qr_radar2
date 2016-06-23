@@ -11,7 +11,7 @@ Published the following information from detected QR-codes to the topic `qr` top
 * Multiple threads to publish vital data which reduces delay.
 * ROS Time stamping of processed QR-Code.
 * Functions perfectly in almost **any** light conditions (except complete darkness and powerful spotlights).
-* Maximum centered distance for reading QR-Code is approx. 4m.
+* Maximum centered distance for reading QR-Code is approx. 4m (with 360p front camera).
 * Configurable re-send throttle timer, based on ROS time, (default 2 seconds) to avoid QR-spamming and map configuration overload.
 * QR-Code text publishing.
 * QR-Code horizontal offset in cm.
