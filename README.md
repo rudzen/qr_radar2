@@ -5,9 +5,11 @@ Designed for the course 02343 CDIO-Projekt F16, DTU.
 Basic QR code scanning of topic `image`. This is achieved by using the zbar (http://zbar.sourceforge.net/) barcode reader library.
 Published the following information from detected QR-codes to the topic `qr` topic.
 
+NOTE: This is just a part of a complete project.
+
 #FEATURES#
 
-* Highly optimized C++ code.
+* Somewhat optimized C++ code.
 * Multiple threads to publish vital data which reduces delay.
 * ROS Time stamping of processed QR-Code.
 * Functions perfectly in almost **any** light conditions (except complete darkness and powerful spotlights).
